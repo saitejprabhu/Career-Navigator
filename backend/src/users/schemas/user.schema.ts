@@ -18,6 +18,9 @@ export class User extends Document {
     experience: string[];
     interests: string[];
   };
+
+  @Prop({ type: Object, default: {} })
+  skillStatus: Record<string, { status: string; lastUpdated: Date }>;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -19,6 +19,7 @@ interface CareerStore {
   badges: string[];
 
   setProfile: (profile: Partial<CareerStore["profile"]>) => void;
+  markSkillLearned: (skillId: string) => Promise<void>;
 }
 
 export const useCareerStore = create<CareerStore>()(
@@ -38,6 +39,22 @@ export const useCareerStore = create<CareerStore>()(
 
       setProfile: (profile) =>
         set((state) => ({ profile: { ...state.profile, ...profile } })),
+
+      markSkillLearned: async (skillId: string) => {
+        const api = (await import("@/lib/api")).default;
+        const token = localStorage.getItem("token");
+        await api.post(
+          "/progress/mark-learned",
+          { skillId },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            skills: [...state.profile.skills, skillId],
+          },
+        }));
+      },
     }),
     { name: "career-navigator-storage" },
   ),

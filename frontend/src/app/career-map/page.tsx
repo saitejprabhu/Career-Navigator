@@ -12,7 +12,7 @@ interface Skill {
 }
 
 export default function CareerMapPage() {
-  const { profile } = useCareerStore();
+  const { profile, markSkillLearned } = useCareerStore();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,8 +25,8 @@ export default function CareerMapPage() {
   }, []);
 
   const getColor = (skillId: string) => {
-    if (profile.skills.includes(skillId)) return "#22c55e"; // green = acquired
-    return "#9ca3af"; // grey = missing
+    if (profile.skills.includes(skillId)) return "#22c55e";
+    return "#9ca3af";
   };
 
   const nodes: Node[] = skills.map((skill, index) => ({
@@ -52,12 +52,28 @@ export default function CareerMapPage() {
   if (loading) return <div className="p-8">Loading career map...</div>;
 
   return (
-    <div style={{ height: "80vh" }}>
+    <div>
       <h1 className="text-2xl font-bold p-4">Your Career Map</h1>
-      <ReactFlow nodes={nodes} edges={edges} fitView>
-        <Background />
-        <Controls />
-      </ReactFlow>
+
+      {/* Mark as Learned buttons */}
+      <div className="flex gap-2 px-4 pb-4">
+        {skills.map((skill) => (
+          <button
+            key={skill.skillId}
+            onClick={() => markSkillLearned(skill.skillId)}
+            className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+          >
+            Mark {skill.name} as Learned
+          </button>
+        ))}
+      </div>
+
+      <div style={{ height: "70vh" }}>
+        <ReactFlow nodes={nodes} edges={edges} fitView>
+          <Background />
+          <Controls />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
