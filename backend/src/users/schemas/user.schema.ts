@@ -21,6 +21,12 @@ export class User extends Document {
 
   @Prop({ type: Object, default: {} })
   skillStatus: Record<string, { status: string; lastUpdated: Date }>;
+
+  @Prop({ type: Object, default: {} })
+  projectSubmissions: Record<
+    string,
+    { githubUrl: string; status: string; quizPassed: boolean }
+  >;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
