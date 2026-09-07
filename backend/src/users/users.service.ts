@@ -7,8 +7,9 @@ import { User } from './schemas/user.schema';
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
-  async create(email: string, hashedPassword: string) {
+  async create(name: string, email: string, hashedPassword: string) {
     const user = new this.userModel({
+      name,
       email,
       password: hashedPassword,
       profile: {},

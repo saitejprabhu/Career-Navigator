@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import ReactFlow, { Background, Controls, Node, Edge } from "reactflow";
 import "reactflow/dist/style.css";
 import api from "@/lib/api";
@@ -49,22 +50,30 @@ export default function CareerMapPage() {
     })),
   );
 
-  if (loading) return <div className="p-8">Loading career map...</div>;
+  if (loading)
+    return <div className="p-8 text-white">Loading career map...</div>;
 
   return (
-    <div>
+    <div className="bg-gradient-to-b from-black via-gray-950 to-black text-white min-h-screen">
       <h1 className="text-2xl font-bold p-4">Your Career Map</h1>
 
-      {/* Mark as Learned buttons */}
-      <div className="flex gap-2 px-4 pb-4">
+      {/* Per-skill actions */}
+      <div className="flex flex-wrap gap-3 px-4 pb-4">
         {skills.map((skill) => (
-          <button
-            key={skill.skillId}
-            onClick={() => markSkillLearned(skill.skillId)}
-            className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
-          >
-            Mark {skill.name} as Learned
-          </button>
+          <div key={skill.skillId} className="flex gap-2">
+            <button
+              onClick={() => markSkillLearned(skill.skillId)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-sm transition-colors"
+            >
+              Mark &quot;{skill.name}&quot; as Learned
+            </button>
+            <Link
+              href={`/skill/${skill.skillId}`}
+              className="border border-gray-700 hover:border-blue-600 text-gray-200 px-3 py-1.5 rounded text-sm transition-colors"
+            >
+              View Project
+            </Link>
+          </div>
         ))}
       </div>
 

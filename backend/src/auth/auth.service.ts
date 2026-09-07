@@ -14,12 +14,12 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signup(email: string, password: string) {
+  async signup(name: string, email: string, password: string) {
     const existing = await this.usersService.findByEmail(email);
     if (existing) throw new ConflictException('Email already registered');
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await this.usersService.create(email, hashed);
+    const user = await this.usersService.create(name, email, hashed);
 
     return this.generateToken(user._id.toString(), user.email);
   }

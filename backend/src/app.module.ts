@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ProgressModule } from './progress/progress.module';
 import { ProjectsModule } from './projects/projects.module';
+import { StreakModule } from './streak/streak.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ProjectsModule } from './projects/projects.module';
     SkillsModule,
     ProgressModule,
     ProjectsModule,
+    StreakModule,
   ],
   controllers: [AppController],
   providers: [AppService],

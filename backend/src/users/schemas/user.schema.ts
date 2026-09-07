@@ -3,6 +3,9 @@ import { Document } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class User extends Document {
+  @Prop({ required: true })
+  name: string;
+
   @Prop({ required: true, unique: true })
   email: string;
 
@@ -27,6 +30,19 @@ export class User extends Document {
     string,
     { githubUrl: string; status: string; quizPassed: boolean }
   >;
+
+  @Prop({
+    type: Object,
+    default: { count: 0, lastActiveDate: null, freezesAvailable: 0 },
+  })
+  streak: {
+    count: number;
+    lastActiveDate: string | null;
+    freezesAvailable: number;
+  };
+
+  @Prop({ type: [String], default: [] })
+  badges: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
