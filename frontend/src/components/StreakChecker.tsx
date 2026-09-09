@@ -16,5 +16,5 @@ export default function StreakChecker() {
     }
   }, []);
 
-  return null; // renders nothing, just runs the effect
+  return null;
 }

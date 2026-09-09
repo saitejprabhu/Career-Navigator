@@ -3,20 +3,29 @@ interface Skill {
   name: string;
 }
 
-export function matchSkillsInText(text: string, skills: Skill[]): string[] {
-  const lower = text.toLowerCase();
-  return skills
-    .filter((s) => lower.includes(s.name.toLowerCase()))
-    .map((s) => s.skillId);
+function normalize(text: string): string {
+  let t = text
+    .toLowerCase()
+    .replace(/[^a-z0-9+#.\s]/g, " ")
+    .replace(/\s+/g, " ");
+
+  // split common concatenations like "reactjs" -> "react js", "nodejs" -> "node js"
+  t = t.replace(/\b(react|node|next|express|vue|angular)js\b/g, "$1 js");
+
+  return t;
 }
 
-// Maps GitHub's language names to your skillId convention
-export function mapGithubLanguages(
-  languages: string[],
-  skills: Skill[],
-): string[] {
-  const lowerLangs = languages.map((l) => l.toLowerCase());
+export function matchSkillsInText(text: string, skills: Skill[]): string[] {
+  const normalized = normalize(text);
+
   return skills
-    .filter((s) => lowerLangs.includes(s.name.toLowerCase()))
+    .filter((s) => {
+      const skillWord = s.name.toLowerCase();
+      const pattern = new RegExp(
+        `\\b${skillWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        "i",
+      );
+      return pattern.test(normalized);
+    })
     .map((s) => s.skillId);
 }

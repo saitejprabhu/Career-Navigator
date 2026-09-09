@@ -1,16 +1,51 @@
 "use client";
+
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { extractTextFromFile } from "@/utils/resumeParser";
 import { matchSkillsInText } from "@/utils/skillMatch";
+import { parseResumeSections, SectionKey } from "@/utils/resumeSectionParser";
+import {
+  User,
+  MapPin,
+  GraduationCap,
+  BriefcaseBusiness,
+  FileText,
+  Upload,
+  Plus,
+  X,
+  Award,
+  Code2,
+  BookOpen,
+  Trophy,
+  FolderGit2,
+  Heart,
+  Save,
+  LogOut,
+  CheckCircle2,
+  Pencil,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Globe,
+  ExternalLink,
+} from "lucide-react";
+
+/* =========================================================
+   Badge Names
+========================================================= */
 
 const BADGE_NAMES: Record<string, string> = {
-  "getting-started": "🌱 Getting Started",
-  "consistent-learner": "📅 Consistent Learner",
-  "dedicated-learner": "💪 Dedicated Learner",
-  unstoppable: "🚀 Unstoppable",
+  "getting-started": "Getting Started",
+  "consistent-learner": "Consistent Learner",
+  "dedicated-learner": "Dedicated Learner",
+  unstoppable: "Unstoppable",
 };
+
+/* =========================================================
+   Types
+========================================================= */
 
 type ProfileData = {
   bio: string;
@@ -18,6 +53,7 @@ type ProfileData = {
   github: string;
   linkedin: string;
   instagram: string;
+
   skills: string[];
   education: string[];
   certifications: string[];
@@ -28,12 +64,24 @@ type ProfileData = {
   interests: string[];
 };
 
+type SkillRef = {
+  skillId: string;
+  name: string;
+};
+
+type ProfileTextKey = "bio" | "location" | "github" | "linkedin" | "instagram";
+
+/* =========================================================
+   Empty Profile
+========================================================= */
+
 const EMPTY_PROFILE: ProfileData = {
   bio: "",
   location: "",
   github: "",
   linkedin: "",
   instagram: "",
+
   skills: [],
   education: [],
   certifications: [],
@@ -44,52 +92,63 @@ const EMPTY_PROFILE: ProfileData = {
   interests: [],
 };
 
+/* =========================================================
+   Profile Tabs
+========================================================= */
+
 const TAB_CONFIG: {
   key: keyof ProfileData;
   label: string;
   placeholder: string;
+  icon: React.ReactNode;
 }[] = [
   {
     key: "education",
     label: "Education",
     placeholder: "e.g. B.Tech IT, Goa College of Engineering",
+    icon: <GraduationCap className="w-4 h-4" />,
   },
   {
     key: "experience",
-    label: "Work Experience",
-    placeholder: "e.g. Frontend Intern at XYZ Corp",
+    label: "Experience",
+    placeholder: "e.g. Frontend Developer Intern at XYZ Corp",
+    icon: <BriefcaseBusiness className="w-4 h-4" />,
   },
   {
     key: "internships",
     label: "Internships",
     placeholder: "e.g. Summer Intern at ABC Ltd",
+    icon: <BookOpen className="w-4 h-4" />,
   },
   {
     key: "certifications",
-    label: "Courses & Certifications",
+    label: "Certifications",
     placeholder: "e.g. AWS Cloud Practitioner",
+    icon: <Award className="w-4 h-4" />,
   },
   {
     key: "hackathons",
     label: "Hackathons",
     placeholder: "e.g. Smart India Hackathon 2026 — Finalist",
+    icon: <Trophy className="w-4 h-4" />,
   },
   {
     key: "projects",
     label: "Projects",
     placeholder: "e.g. Portfolio website with Next.js",
+    icon: <FolderGit2 className="w-4 h-4" />,
   },
   {
     key: "interests",
     label: "Interests",
     placeholder: "e.g. Web development, AI",
+    icon: <Heart className="w-4 h-4" />,
   },
 ];
 
-interface SkillRef {
-  skillId: string;
-  name: string;
-}
+/* =========================================================
+   Helpers
+========================================================= */
 
 function initials(name: string) {
   return (
@@ -102,36 +161,101 @@ function initials(name: string) {
   );
 }
 
+/* =========================================================
+   Profile Page
+========================================================= */
+
 export default function ProfilePage() {
   const router = useRouter();
+
+  /* -------------------------
+     Basic user information
+  ------------------------- */
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+
+  /* -------------------------
+     Profile
+  ------------------------- */
+
   const [profile, setProfile] = useState<ProfileData>(EMPTY_PROFILE);
+
+  /* -------------------------
+     Inputs
+  ------------------------- */
+
   const [inputs, setInputs] = useState<Record<string, string>>({});
+
   const [skillInput, setSkillInput] = useState("");
+
+  /* -------------------------
+     Skills
+  ------------------------- */
+
   const [allSkills, setAllSkills] = useState<SkillRef[]>([]);
+
+  /* -------------------------
+     Badges / streak
+  ------------------------- */
+
   const [badges, setBadges] = useState<string[]>([]);
+
   const [streak, setStreak] = useState<{
     count: number;
     freezesAvailable: number;
   } | null>(null);
+
+  /* -------------------------
+     UI states
+  ------------------------- */
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
   const [editingAbout, setEditingAbout] = useState(false);
+
   const [editingSkills, setEditingSkills] = useState(false);
+
   const [showAllSkills, setShowAllSkills] = useState(false);
+
   const [activeTab, setActiveTab] = useState<keyof ProfileData>("education");
+
+  /* -------------------------
+     Resume
+  ------------------------- */
 
   const [resumeStatus, setResumeStatus] = useState<
     "idle" | "parsing" | "done" | "error"
   >("idle");
+
   const [resumeSuggestions, setResumeSuggestions] = useState<string[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [sectionSuggestions, setSectionSuggestions] = useState<
+    Record<SectionKey, string[]>
+  >({
+    education: [],
+    experience: [],
+    internships: [],
+    certifications: [],
+    hackathons: [],
+    projects: [],
+    interests: [],
+  });
+
+  /* -------------------------
+     Token
+  ------------------------- */
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  /* =========================================================
+     Load Profile
+  ========================================================= */
 
   useEffect(() => {
     if (!token) {
@@ -140,134 +264,213 @@ export default function ProfilePage() {
     }
 
     Promise.all([
-      api.get("/users/me", { headers: { Authorization: `Bearer ${token}` } }),
-      api.get("/streak/me", { headers: { Authorization: `Bearer ${token}` } }),
+      api.get("/users/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+
+      api.get("/streak/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+
       api.get("/skills"),
     ])
       .then(([userRes, streakRes, skillsRes]) => {
         setName(userRes.data.name || "");
         setEmail(userRes.data.email || "");
-        setProfile({ ...EMPTY_PROFILE, ...userRes.data.profile });
+
+        setProfile({
+          ...EMPTY_PROFILE,
+          ...userRes.data.profile,
+        });
+
         setBadges(streakRes.data.badges || []);
+
         setStreak(streakRes.data.streak || null);
+
         setAllSkills(skillsRes.data);
       })
-      .catch(() => router.push("/login"))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        router.push("/login");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [token, router]);
 
-  const setField = (key: keyof ProfileData, value: string) =>
-    setProfile((prev) => ({ ...prev, [key]: value }));
+  /* =========================================================
+     Update text field
+  ========================================================= */
+
+  const setField = (key: ProfileTextKey, value: string) => {
+    setProfile((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  /* =========================================================
+     Skills
+  ========================================================= */
 
   const addSkill = (skillId: string) => {
-    if (!skillId || profile.skills.includes(skillId)) return;
-    setProfile((prev) => ({ ...prev, skills: [...prev.skills, skillId] }));
+    if (!skillId || profile.skills.includes(skillId)) {
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      skills: [...prev.skills, skillId],
+    }));
   };
-  const removeSkill = (skillId: string) =>
+
+  const removeSkill = (skillId: string) => {
     setProfile((prev) => ({
       ...prev,
       skills: prev.skills.filter((s) => s !== skillId),
     }));
+  };
+
+  /* =========================================================
+     Add items
+  ========================================================= */
 
   const addItem = (key: keyof ProfileData) => {
     const value = inputs[key]?.trim();
+
     if (!value) return;
+
     setProfile((prev) => ({
       ...prev,
       [key]: [...(prev[key] as string[]), value],
     }));
-    setInputs((prev) => ({ ...prev, [key]: "" }));
+
+    setInputs((prev) => ({
+      ...prev,
+      [key]: "",
+    }));
   };
-  const removeItem = (key: keyof ProfileData, index: number) =>
+
+  /* =========================================================
+     Remove item
+  ========================================================= */
+
+  const removeItem = (key: keyof ProfileData, index: number) => {
     setProfile((prev) => ({
       ...prev,
       [key]: (prev[key] as string[]).filter((_, i) => i !== index),
     }));
+  };
+
+  /* =========================================================
+     Resume Upload
+  ========================================================= */
 
   const handleResumeUpload = async (file: File) => {
     setResumeStatus("parsing");
+
     try {
       const text = await extractTextFromFile(file);
+
       const matched = matchSkillsInText(text, allSkills).filter(
         (id) => !profile.skills.includes(id),
       );
       setResumeSuggestions(matched);
+
+      const sections = parseResumeSections(text);
+      // filter out anything already present in the profile
+      (Object.keys(sections) as SectionKey[]).forEach((key) => {
+        sections[key] = sections[key].filter(
+          (item) => !profile[key].includes(item),
+        );
+      });
+      setSectionSuggestions(sections);
+
       setResumeStatus("done");
-    } catch {
+    } catch (err) {
+      console.error(err);
       setResumeStatus("error");
     }
   };
 
+  const acceptSectionSuggestion = (key: SectionKey, value: string) => {
+    setProfile((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] as string[]), value],
+    }));
+    setSectionSuggestions((prev) => ({
+      ...prev,
+      [key]: prev[key].filter((v) => v !== value),
+    }));
+  };
+
+  const acceptAllInSection = (key: SectionKey) => {
+    setProfile((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] as string[]), ...sectionSuggestions[key]],
+    }));
+    setSectionSuggestions((prev) => ({ ...prev, [key]: [] }));
+  };
+
+  /* =========================================================
+     Accept Resume Skill
+  ========================================================= */
+
   const acceptSuggestion = (skillId: string) => {
     addSkill(skillId);
+
     setResumeSuggestions((prev) => prev.filter((s) => s !== skillId));
   };
 
-  const generateResumeText = () => {
-    const skillNames = profile.skills.map(
-      (id) => allSkills.find((s) => s.skillId === id)?.name || id,
-    );
-    const lines = [
-      `${name}`,
-      email,
-      profile.location,
-      "",
-      profile.bio,
-      "",
-      "SKILLS",
-      ...skillNames.map((s) => `- ${s}`),
-      "",
-      "EDUCATION",
-      ...profile.education.map((e) => `- ${e}`),
-      "",
-      "EXPERIENCE",
-      ...profile.experience.map((e) => `- ${e}`),
-      "",
-      "INTERNSHIPS",
-      ...profile.internships.map((e) => `- ${e}`),
-      "",
-      "COURSES & CERTIFICATIONS",
-      ...profile.certifications.map((e) => `- ${e}`),
-      "",
-      "HACKATHONS",
-      ...profile.hackathons.map((e) => `- ${e}`),
-      "",
-      "PROJECTS",
-      ...profile.projects.map((e) => `- ${e}`),
-      "",
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${name || "resume"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  /* =========================================================
+     Save Profile
+  ========================================================= */
 
   const handleSave = async () => {
     setSaving(true);
     setSaveMsg("");
+
     try {
       await api.put("/users/me/profile", profile, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
       setSaveMsg("Profile saved successfully.");
     } catch {
       setSaveMsg("Failed to save. Please try again.");
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveMsg(""), 3000);
+
+      setTimeout(() => {
+        setSaveMsg("");
+      }, 3000);
     }
   };
+
+  /* =========================================================
+     Logout
+  ========================================================= */
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     router.push("/login");
   };
 
+  /* =========================================================
+     Skill Name
+  ========================================================= */
+
   const skillName = (id: string) =>
     allSkills.find((s) => s.skillId === id)?.name || id;
+
+  /* =========================================================
+     Completion
+  ========================================================= */
 
   const sectionKeys: (keyof ProfileData)[] = [
     "skills",
@@ -279,251 +482,604 @@ export default function ProfilePage() {
     "projects",
     "interests",
   ];
+
   const filledCount = sectionKeys.filter(
-    (k) => (profile[k] as string[]).length > 0,
+    (key) => (profile[key] as string[]).length > 0,
   ).length;
+
   const completionPercent = Math.round(
     (filledCount / sectionKeys.length) * 100,
   );
 
+  /* =========================================================
+     Loading
+  ========================================================= */
+
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-black via-gray-950 to-black text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading profile...</p>
+      <main className="min-h-screen bg-[#050816] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+
+          <p className="text-sm text-slate-500">Loading profile...</p>
+        </div>
       </main>
     );
   }
 
+  /* =========================================================
+     Visible Skills
+  ========================================================= */
+
   const visibleSkills = showAllSkills
     ? profile.skills
     : profile.skills.slice(0, 5);
+
   const extraSkillCount = profile.skills.length - visibleSkills.length;
 
+  /* =========================================================
+     Current Tab
+  ========================================================= */
+
+  const currentTab = TAB_CONFIG.find((tab) => tab.key === activeTab);
+
+  /* =========================================================
+     Render
+  ========================================================= */
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black via-gray-950 to-black text-white px-4 py-10">
-      <div className="max-w-4xl mx-auto">
-        {/* Top: About card + Cover card */}
-        <div className="grid md:grid-cols-[280px_1fr] gap-5 mb-2">
+    <main className="min-h-screen bg-[#050816] text-white px-4 py-8">
+      <div className="max-w-5xl mx-auto pb-28">
+        {/* =====================================================
+    PROFILE HEADER
+===================================================== */}
+
+        <section className="relative overflow-hidden bg-[#0B1120] border border-slate-800/80 rounded-2xl mb-5">
+          {/* Cover */}
+          <div className="h-6 bg-[#0B1120]">
+            {/* Subtle overlay */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_35%)]" />
+
+            {/* Decorative glow */}
+            <div className="absolute -top-16 right-10 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-20 left-1/3 w-56 h-56 rounded-full bg-blue-400/10 blur-3xl" />
+          </div>
+
+          {/* Header Content */}
+          <div className="px-6 sm:px-7 py-8">
+            {/* Identity + Stats */}
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+              {/* Identity */}
+              <div className="flex items-end gap-4 -mt-10">
+                {/* Avatar */}
+                <div className="h-20 w-20 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 border-4 border-[#0B1120] flex items-center justify-center text-xl font-bold text-white shadow-xl shadow-black/30">
+                  {initials(name)}
+                </div>
+
+                {/* Name */}
+                <div className="pb-1 min-w-0">
+                  <p className="text-xs text-blue-400 font-medium mb-1">
+                    Career Profile
+                  </p>
+
+                  <h1 className="text-2xl font-bold text-white whitespace-nowrap">
+                    {name || "Your Name"}
+                  </h1>
+
+                  <p className="text-sm text-slate-400 mt-1">{email}</p>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-6 lg:pr-2">
+                {/* Projects */}
+                <div className="text-center min-w-[55px]">
+                  <p className="text-xl font-bold text-white">
+                    {profile.projects.length}
+                  </p>
+
+                  <p className="text-[11px] text-slate-500 mt-1">Projects</p>
+                </div>
+
+                <div className="w-px h-8 bg-slate-800" />
+
+                {/* Badges */}
+                <div className="text-center min-w-[55px]">
+                  <p className="text-xl font-bold text-white">
+                    {badges.length}
+                  </p>
+
+                  <p className="text-[11px] text-slate-500 mt-1">Badges</p>
+                </div>
+
+                <div className="w-px h-8 bg-slate-800" />
+
+                {/* Streak */}
+                <div className="text-center min-w-[55px]">
+                  <p className="text-xl font-bold text-white">
+                    {streak?.count ?? 0}
+                  </p>
+
+                  <p className="text-[11px] text-slate-500 mt-1">Streak</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6">
+              {/* Education */}
+              <div className="group flex items-center gap-3 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-blue-500/30 transition">
+                <div className="w-10 h-10 shrink-0 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <GraduationCap className="w-4 h-4 text-blue-400" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-500">Education</p>
+
+                  <p className="text-sm font-medium text-slate-200 truncate">
+                    {profile.education[0] || "Not added yet"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Experience */}
+              <div className="group flex items-center gap-3 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-purple-500/30 transition">
+                <div className="w-10 h-10 shrink-0 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                  <BriefcaseBusiness className="w-4 h-4 text-purple-400" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-500">Experience</p>
+
+                  <p className="text-sm font-medium text-slate-200 truncate">
+                    {profile.experience[0] ||
+                      profile.internships[0] ||
+                      "Not added yet"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="group flex items-center gap-3 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-emerald-500/30 transition">
+                <div className="w-10 h-10 shrink-0 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-500">Location</p>
+
+                  <p className="text-sm font-medium text-slate-200 truncate">
+                    {profile.location || "Not added yet"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Social Links */}
+            {(profile.github || profile.linkedin || profile.instagram) && (
+              <div className="flex items-center gap-2 mt-5">
+                {profile.github && (
+                  <a
+                    href={profile.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="GitHub"
+                    className="w-9 h-9 rounded-lg border border-slate-800 bg-[#060B16] flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 hover:bg-[#0B1120] transition"
+                  >
+                    <Code2 className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.linkedin && (
+                  <a
+                    href={profile.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="LinkedIn"
+                    className="w-9 h-9 rounded-lg border border-slate-800 bg-[#060B16] flex items-center justify-center text-slate-400 hover:text-blue-400 hover:border-blue-500/40 hover:bg-[#0B1120] transition"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+
+                {profile.instagram && (
+                  <a
+                    href={profile.instagram}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Instagram"
+                    className="w-9 h-9 rounded-lg border border-slate-800 bg-[#060B16] flex items-center justify-center text-slate-400 hover:text-pink-400 hover:border-pink-500/40 hover:bg-[#0B1120] transition"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* =====================================================
+            PROFILE COMPLETION
+        ===================================================== */}
+
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+
+              <span className="text-sm font-medium text-slate-300">
+                Profile completion
+              </span>
+            </div>
+
+            <span className="text-sm font-semibold text-emerald-400">
+              {completionPercent}%
+            </span>
+          </div>
+
+          <div className="h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <div
+              className="h-full bg-linear-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-500"
+              style={{
+                width: `${completionPercent}%`,
+              }}
+            />
+          </div>
+
+          {completionPercent < 100 && (
+            <p className="text-xs text-slate-600 mt-2">
+              Add more information to make your career profile stronger.
+            </p>
+          )}
+        </section>
+
+        {/* =====================================================
+            ABOUT + QUICK PROFILE
+        ===================================================== */}
+
+        <section className="grid lg:grid-cols-[1fr_300px] gap-5 mb-5">
           {/* About */}
-          <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">About {name.split(" ")[0]}</h2>
+          <div className="bg-[#0B1120] border border-slate-800 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-white">
+                  About {name.split(" ")[0] || "you"}
+                </h2>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Tell others a little about yourself
+                </p>
+              </div>
+
               <button
                 onClick={() => setEditingAbout((v) => !v)}
-                className="text-gray-500 hover:text-blue-400 text-sm"
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition"
               >
-                ✎
+                <Pencil className="w-3.5 h-3.5" />
+
+                {editingAbout ? "Cancel" : "Edit"}
               </button>
             </div>
 
             {editingAbout ? (
               <div className="space-y-3">
-                <input
-                  value={profile.location}
-                  onChange={(e) => setField("location", e.target.value)}
-                  placeholder="Location, e.g. Goa, India"
-                  className="w-full border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                />
-                <textarea
-                  value={profile.bio}
-                  onChange={(e) => setField("bio", e.target.value)}
-                  placeholder="Write a short bio..."
-                  rows={4}
-                  className="w-full border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500 resize-none"
-                />
-                <input
-                  value={profile.github}
-                  onChange={(e) => setField("github", e.target.value)}
-                  placeholder="GitHub URL"
-                  className="w-full border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                />
-                <input
-                  value={profile.linkedin}
-                  onChange={(e) => setField("linkedin", e.target.value)}
-                  placeholder="LinkedIn URL"
-                  className="w-full border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                />
-                <input
-                  value={profile.instagram}
-                  onChange={(e) => setField("instagram", e.target.value)}
-                  placeholder="Instagram URL"
-                  className="w-full border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                />
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5">
+                    Location
+                  </label>
+
+                  <input
+                    value={profile.location}
+                    onChange={(e) => setField("location", e.target.value)}
+                    placeholder="e.g. Goa, India"
+                    className="w-full border border-slate-800 rounded-lg bg-[#060B16] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5">
+                    Short bio
+                  </label>
+
+                  <textarea
+                    value={profile.bio}
+                    onChange={(e) => setField("bio", e.target.value)}
+                    placeholder="Write a short bio about yourself..."
+                    rows={4}
+                    className="w-full border border-slate-800 rounded-lg bg-[#060B16] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60 transition resize-none"
+                  />
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <input
+                    value={profile.github}
+                    onChange={(e) => setField("github", e.target.value)}
+                    placeholder="GitHub URL"
+                    className="w-full border border-slate-800 rounded-lg bg-[#060B16] px-3 py-2.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60"
+                  />
+
+                  <input
+                    value={profile.linkedin}
+                    onChange={(e) => setField("linkedin", e.target.value)}
+                    placeholder="LinkedIn URL"
+                    className="w-full border border-slate-800 rounded-lg bg-[#060B16] px-3 py-2.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60"
+                  />
+
+                  <input
+                    value={profile.instagram}
+                    onChange={(e) => setField("instagram", e.target.value)}
+                    placeholder="Instagram URL"
+                    className="w-full border border-slate-800 rounded-lg bg-[#060B16] px-3 py-2.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60"
+                  />
+                </div>
+
                 <button
                   onClick={() => setEditingAbout(false)}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 rounded-lg"
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
                 >
+                  <CheckCircle2 className="w-4 h-4" />
                   Done
                 </button>
               </div>
             ) : (
-              <>
-                <div className="flex gap-3 mb-3 text-lg">
-                  {profile.github && (
-                    <a href={profile.github} target="_blank" rel="noreferrer">
-                      🐙
-                    </a>
-                  )}
-                  {profile.linkedin && (
-                    <a href={profile.linkedin} target="_blank" rel="noreferrer">
-                      💼
-                    </a>
-                  )}
-                  {profile.instagram && (
-                    <a
-                      href={profile.instagram}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      📷
-                    </a>
-                  )}
-                  {!profile.github &&
-                    !profile.linkedin &&
-                    !profile.instagram && (
-                      <span className="text-xs text-gray-600">
-                        No links added
-                      </span>
-                    )}
-                </div>
-                {profile.location && (
-                  <p className="text-sm text-gray-400 mb-3">
-                    📍 {profile.location}
-                  </p>
-                )}
-                <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
+              <div>
+                <p className="text-sm text-slate-300 leading-relaxed">
                   {profile.bio || "Add a short bio so others know who you are."}
                 </p>
-              </>
+
+                {!profile.bio && (
+                  <button
+                    onClick={() => setEditingAbout(true)}
+                    className="mt-4 text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    Add your bio →
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
-          {/* Cover / identity card */}
-          <div className="relative rounded-2xl overflow-hidden border border-gray-800">
-            <div className="h-28 bg-gradient-to-br from-blue-500 via-indigo-600 to-violet-700" />
-            <div className="bg-gray-900/80 px-6 pt-0 pb-5 flex items-end justify-between -mt-10">
-              <div className="flex items-end gap-4">
-                <div className="h-20 w-20 rounded-full bg-gray-800 border-4 border-gray-900 flex items-center justify-center text-xl font-bold">
-                  {initials(name)}
-                </div>
-                <div className="pb-1">
-                  <p className="font-semibold text-lg">{name}</p>
-                  <p className="text-xs text-gray-500">{email}</p>
-                </div>
+          {/* Profile Snapshot */}
+          <div className="bg-[#0B1120] border border-slate-800 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <User className="w-4 h-4 text-blue-400" />
+
+              <div>
+                <h2 className="font-semibold text-white text-sm">
+                  Profile Snapshot
+                </h2>
+
+                <p className="text-[11px] text-slate-500">
+                  Your current profile
+                </p>
               </div>
-              <div className="flex gap-6 text-center pb-1">
-                <div>
-                  <p className="font-semibold">{profile.projects.length}</p>
-                  <p className="text-xs text-gray-500">Projects</p>
-                </div>
-                <div>
-                  <p className="font-semibold">{badges.length}</p>
-                  <p className="text-xs text-gray-500">Badges</p>
-                </div>
-                <div>
-                  <p className="font-semibold">{streak?.count ?? 0}</p>
-                  <p className="text-xs text-gray-500">Streak</p>
-                </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Name</p>
+
+                <p className="text-sm text-slate-200">{name || "Not added"}</p>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Email</p>
+
+                <p className="text-sm text-slate-200 truncate">
+                  {email || "Not added"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Education</p>
+
+                <p className="text-sm text-slate-200">
+                  {profile.education[0] || "Not added"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-slate-500 mb-1">Experience</p>
+
+                <p className="text-sm text-slate-200">
+                  {profile.experience[0] ||
+                    profile.internships[0] ||
+                    "Fresher / Not added"}
+                </p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Completion bar */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-            <span>Profile Completion</span>
-            <span>{completionPercent}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-gray-900 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-500"
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
-        </div>
+        {/* =====================================================
+            RESUME
+        ===================================================== */}
 
-        {/* Resume & profile action row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-4 mb-5">
-          <div>
-            <h3 className="font-semibold text-sm">Resume & Profile</h3>
-            <p className="text-xs text-gray-500">
-              Build a resume from your profile, or pull in skills by uploading a
-              file.
-            </p>
+        <section className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-5 mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 shrink-0 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-blue-400" />
+              </div>
+
+              <div>
+                <h2 className="font-semibold text-white">Resume</h2>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Generate a resume from your profile or import an existing one.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 border border-slate-700 hover:border-blue-500/50 bg-[#060B16] text-slate-200 text-sm font-medium px-4 py-2.5 rounded-lg transition"
+              >
+                <Upload className="w-4 h-4" />
+                Import Resume
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] && handleResumeUpload(e.target.files[0])
+                }
+              />
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={generateResumeText}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              Generate Resume
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="border border-gray-700 hover:border-blue-600 text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              Import from Resume
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx"
-              className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && handleResumeUpload(e.target.files[0])
-              }
-            />
-          </div>
-        </div>
+        </section>
+
+        {/* =====================================================
+            RESUME STATUS
+        ===================================================== */}
 
         {resumeStatus === "parsing" && (
-          <p className="text-xs text-gray-500 mb-4">Reading your resume...</p>
-        )}
-        {resumeStatus === "error" && (
-          <p className="text-xs text-red-400 mb-4">
-            Couldn&apos;t read that file. Try a different PDF/DOCX.
-          </p>
-        )}
-        {resumeStatus === "done" && resumeSuggestions.length > 0 && (
-          <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-4 mb-5">
-            <p className="text-xs text-gray-400 mb-2">
-              Found these skills in your resume — tap to add:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {resumeSuggestions.map((id) => (
-                <button
-                  key={id}
-                  onClick={() => acceptSuggestion(id)}
-                  className="text-xs bg-blue-500/10 text-blue-400 border border-blue-800/50 px-3 py-1 rounded-full hover:bg-blue-500/20"
-                >
-                  + {skillName(id)}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-3 bg-blue-500/5 border border-blue-500/20 rounded-xl px-5 py-4 mb-5">
+            <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+
+            <p className="text-sm text-blue-300">Reading your resume...</p>
           </div>
         )}
 
-        {/* Acquired Skills */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-5 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Acquired Skills</h2>
+        {resumeStatus === "error" && (
+          <div className="bg-red-500/5 border border-red-500/20 rounded-xl px-5 py-4 mb-5">
+            <p className="text-sm text-red-400">
+              Couldn&apos;t read that file. Try a different PDF/DOCX.
+            </p>
+          </div>
+        )}
+
+        {resumeStatus === "done" && (
+          <>
+            <section className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-5 mb-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    Skills from your resume
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Tap to add to your profile
+                  </p>
+                </div>
+              </div>
+
+              {resumeSuggestions.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No matching skills found in this resume.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {resumeSuggestions.map((id) => (
+                    <button
+                      key={id}
+                      onClick={() => acceptSuggestion(id)}
+                      className="flex items-center gap-1.5 text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {skillName(id)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {(Object.keys(sectionSuggestions) as SectionKey[])
+              .filter((key) => sectionSuggestions[key].length > 0)
+              .map((key) => {
+                const tab = TAB_CONFIG.find((t) => t.key === key);
+                return (
+                  <section
+                    key={key}
+                    className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-5 mb-5"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        {tab?.icon}
+                        <div>
+                          <h3 className="text-sm font-semibold text-white">
+                            {tab?.label} from your resume
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Review and add the lines that look right
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => acceptAllInSection(key)}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        Add all
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {sectionSuggestions[key].map((item) => (
+                        <div
+                          key={item}
+                          className="flex items-center justify-between gap-3 bg-[#060B16] border border-slate-800 rounded-lg px-4 py-2.5"
+                        >
+                          <p className="text-sm text-slate-300">{item}</p>
+                          <button
+                            onClick={() => acceptSectionSuggestion(key, item)}
+                            className="shrink-0 flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-md hover:bg-blue-500/20 transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+          </>
+        )}
+
+        {/* =====================================================
+            SKILLS
+        ===================================================== */}
+
+        <section className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-6 mb-5">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <Code2 className="w-5 h-5 text-emerald-400" />
+              </div>
+
+              <div>
+                <h2 className="font-semibold text-white">Acquired Skills</h2>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Technologies and skills you&apos;ve learned
+                </p>
+              </div>
+            </div>
+
             <button
               onClick={() => setEditingSkills((v) => !v)}
-              className="text-gray-500 hover:text-blue-400 text-sm"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition"
             >
-              ✎
+              <Pencil className="w-3.5 h-3.5" />
+
+              {editingSkills ? "Done" : "Edit"}
             </button>
           </div>
 
+          {/* Add skill */}
           {editingSkills && (
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-5">
               <select
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
-                className="flex-1 border border-gray-700 rounded-lg bg-gray-950 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="flex-1 border border-slate-800 rounded-lg bg-[#060B16] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500/60"
               >
                 <option value="">Add a skill...</option>
+
                 {allSkills
                   .filter((s) => !profile.skills.includes(s.skillId))
                   .map((s) => (
@@ -532,160 +1088,323 @@ export default function ProfilePage() {
                     </option>
                   ))}
               </select>
+
               <button
                 onClick={() => {
                   addSkill(skillInput);
+
                   setSkillInput("");
                 }}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg"
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg transition"
               >
+                <Plus className="w-4 h-4" />
                 Add
               </button>
             </div>
           )}
 
+          {/* Skills */}
           {profile.skills.length === 0 ? (
-            <p className="text-gray-600 text-sm">No skills added yet.</p>
+            <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-slate-800 rounded-xl">
+              <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center mb-3">
+                <Code2 className="w-5 h-5 text-slate-600" />
+              </div>
+
+              <p className="text-sm text-slate-500">No skills added yet</p>
+
+              <button
+                onClick={() => setEditingSkills(true)}
+                className="text-xs text-blue-400 hover:text-blue-300 mt-2"
+              >
+                Add your first skill →
+              </button>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {visibleSkills.map((id) => (
                 <span
                   key={id}
-                  className="flex items-center gap-2 border border-gray-700 text-gray-200 text-sm px-3 py-1.5 rounded-full"
+                  className="flex items-center gap-2 bg-[#060B16] border border-slate-800 text-slate-300 text-sm px-3 py-2 rounded-lg hover:border-slate-700 transition"
                 >
-                  {skillName(id)}
+                  <span>{skillName(id)}</span>
+
                   {editingSkills && (
                     <button
                       onClick={() => removeSkill(id)}
-                      className="text-gray-500 hover:text-red-400"
+                      className="text-slate-600 hover:text-red-400 transition"
+                      aria-label={`Remove ${skillName(id)}`}
                     >
-                      ✕
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </span>
               ))}
+
               {extraSkillCount > 0 && (
                 <button
                   onClick={() => setShowAllSkills(true)}
-                  className="border border-gray-700 text-gray-400 text-sm px-3 py-1.5 rounded-full hover:text-white"
+                  className="flex items-center gap-1.5 border border-slate-800 text-slate-500 text-sm px-3 py-2 rounded-lg hover:text-white hover:border-slate-700 transition"
                 >
-                  {extraSkillCount} More Skills
+                  <ChevronDown className="w-4 h-4" />
+                  {extraSkillCount} more
+                </button>
+              )}
+
+              {showAllSkills && profile.skills.length > 5 && (
+                <button
+                  onClick={() => setShowAllSkills(false)}
+                  className="flex items-center gap-1.5 border border-slate-800 text-slate-500 text-sm px-3 py-2 rounded-lg hover:text-white hover:border-slate-700 transition"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                  Show less
                 </button>
               )}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Badges */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-5 mb-5">
-          <h2 className="font-semibold mb-3">Badges</h2>
+        {/* =====================================================
+            BADGES
+        ===================================================== */}
+
+        <section className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-6 mb-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
+              <Award className="w-5 h-5 text-yellow-400" />
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-white">Badges</h2>
+
+              <p className="text-xs text-slate-500 mt-1">
+                Achievements earned through your progress
+              </p>
+            </div>
+          </div>
+
           {badges.length === 0 ? (
-            <p className="text-gray-600 text-sm">
-              No badges yet — keep learning!
-            </p>
+            <div className="flex items-center gap-3 border border-dashed border-slate-800 rounded-xl px-4 py-4">
+              <Award className="w-5 h-5 text-slate-600" />
+
+              <div>
+                <p className="text-sm text-slate-500">No badges yet</p>
+
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Keep learning to unlock achievements.
+                </p>
+              </div>
+            </div>
           ) : (
-            <div className="flex gap-2 flex-wrap">
-              {badges.map((b) => (
-                <span
-                  key={b}
-                  className="bg-yellow-500/10 text-yellow-400 border border-yellow-800/50 px-3 py-1 rounded-full text-xs"
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {badges.map((badge) => (
+                <div
+                  key={badge}
+                  className="flex items-center gap-3 bg-yellow-500/5 border border-yellow-500/10 rounded-xl px-4 py-3"
                 >
-                  {BADGE_NAMES[b] || b}
-                </span>
+                  <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                    <Award className="w-4 h-4 text-yellow-400" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-200">
+                      {BADGE_NAMES[badge] || badge}
+                    </p>
+
+                    <p className="text-[11px] text-slate-600">Achievement</p>
+                  </div>
+                </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
-          {TAB_CONFIG.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`whitespace-nowrap text-sm px-4 py-2 rounded-full border transition-colors ${
-                activeTab === key
-                  ? "border-blue-500 text-blue-400 bg-blue-500/10"
-                  : "border-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
-              {label}
-              {(profile[key] as string[]).length > 0 && (
-                <span className="ml-1.5 text-xs opacity-70">
-                  ({(profile[key] as string[]).length})
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* =====================================================
+            PROFILE INFORMATION TABS
+        ===================================================== */}
 
-        {/* Active tab content */}
-        {TAB_CONFIG.filter((t) => t.key === activeTab).map(
-          ({ key, placeholder }) => (
-            <div
-              key={key}
-              className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-5 mb-8"
-            >
-              <div className="flex gap-2 mb-3">
-                <input
-                  value={inputs[key] || ""}
-                  onChange={(e) =>
-                    setInputs((prev) => ({ ...prev, [key]: e.target.value }))
-                  }
-                  onKeyDown={(e) =>
-                    e.key === "Enter" && (e.preventDefault(), addItem(key))
-                  }
-                  placeholder={placeholder}
-                  className="flex-1 border border-gray-700 rounded-lg bg-gray-950 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
-                />
-                <button
-                  onClick={() => addItem(key)}
-                  className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg"
-                >
-                  + Add
-                </button>
-              </div>
-              {(profile[key] as string[]).length === 0 ? (
-                <p className="text-gray-600 text-sm">Nothing added yet.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {(profile[key] as string[]).map((item, i) => (
-                    <span
-                      key={i}
-                      className="flex items-center gap-2 bg-gray-800 text-gray-200 text-sm px-3 py-1.5 rounded-full"
-                    >
-                      {item}
-                      <button
-                        onClick={() => removeItem(key, i)}
-                        className="text-gray-500 hover:text-red-400"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+        <section>
+          {/* Tabs */}
+          <div className="overflow-x-auto border-b border-slate-800 mb-5">
+            <div className="flex min-w-max">
+              {TAB_CONFIG.map(({ key, label, icon }) => {
+                const count = (profile[key] as string[]).length;
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                      activeTab === key
+                        ? "border-blue-500 text-blue-400"
+                        : "border-transparent text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {icon}
+
+                    {label}
+
+                    {count > 0 && (
+                      <span className="text-[11px] opacity-60">{count}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          ),
-        )}
+          </div>
 
-        {/* Save bar */}
-        <div className="sticky bottom-4 flex items-center justify-between bg-gray-900/90 backdrop-blur border border-gray-800 rounded-2xl px-6 py-4">
-          <span className="text-sm text-gray-400">{saveMsg}</span>
-          <div className="flex gap-3">
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-400 hover:text-red-400 border border-gray-700 hover:border-red-800 rounded-lg px-4 py-2 transition-colors"
-            >
-              Log Out
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-400 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
-            >
-              {saving ? "Saving..." : "Save Profile"}
-            </button>
+          {/* ===================================================
+              Active Tab
+          =================================================== */}
+
+          <div className="bg-[#0B1120] border border-slate-800 rounded-xl p-6">
+            {/* Section header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  {currentTab?.icon}
+                </div>
+
+                <div>
+                  <h2 className="font-semibold text-white">
+                    {currentTab?.label}
+                  </h2>
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    Add information to your profile
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs text-slate-600">
+                {(profile[activeTab] as string[]).length} added
+              </span>
+            </div>
+
+            {/* Add item */}
+            <div className="flex gap-2 mb-5">
+              <input
+                value={inputs[activeTab] || ""}
+                onChange={(e) =>
+                  setInputs((prev) => ({
+                    ...prev,
+                    [activeTab]: e.target.value,
+                  }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addItem(activeTab);
+                  }
+                }}
+                placeholder={currentTab?.placeholder}
+                className="flex-1 border border-slate-800 rounded-lg bg-[#060B16] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500/60 transition"
+              />
+
+              <button
+                onClick={() => addItem(activeTab)}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg transition"
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
+            </div>
+
+            {/* Empty state */}
+            {(profile[activeTab] as string[]).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-slate-800 rounded-xl">
+                <div className="w-11 h-11 rounded-xl bg-slate-800/50 flex items-center justify-center mb-3">
+                  {currentTab?.icon}
+                </div>
+
+                <p className="text-sm text-slate-500">Nothing added yet</p>
+
+                <p className="text-xs text-slate-600 mt-1">
+                  Add your first {currentTab?.label.toLowerCase()}.
+                </p>
+              </div>
+            ) : (
+              /* Items */
+              <div className="space-y-2">
+                {(profile[activeTab] as string[]).map((item, index) => (
+                  <div
+                    key={`${item}-${index}`}
+                    className="group flex items-center justify-between gap-4 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-slate-700 transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-800/60 flex items-center justify-center text-slate-500">
+                        {currentTab?.icon}
+                      </div>
+
+                      <p className="text-sm text-slate-300 wrap-break-word">
+                        {item}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => removeItem(activeTab, index)}
+                      className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition"
+                      aria-label="Remove item"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* =======================================================
+          STICKY SAVE BAR
+      ======================================================= */}
+
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="max-w-5xl mx-auto px-4 pb-4">
+          <div className="flex items-center justify-between gap-4 bg-[#0B1120]/95 backdrop-blur-xl border border-slate-800 rounded-xl px-5 py-3 shadow-2xl shadow-black/30">
+            {/* Save message */}
+            <div className="flex items-center gap-2 min-w-0">
+              {saveMsg && (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              )}
+
+              <span
+                className={`text-sm truncate ${
+                  saveMsg ? "text-emerald-400" : "text-slate-500"
+                }`}
+              >
+                {saveMsg || "Changes are saved when you click Save Profile."}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-400 border border-slate-800 hover:border-red-500/30 rounded-lg px-4 py-2 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Log Out</span>
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Profile
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

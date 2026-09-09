@@ -4,6 +4,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
 import { getReadinessScore, getReadinessLabel } from "@/utils/readiness";
+import {
+  Target,
+  ArrowRight,
+  Sparkles,
+  FolderKanban,
+  User,
+  Map,
+  BriefcaseBusiness,
+} from "lucide-react";
 
 interface Role {
   roleId: string;
@@ -118,34 +127,48 @@ export default function DashboardPage() {
       .map(([id]) => id);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black via-gray-950 to-black text-white px-4 py-10">
-      <div className="max-w-5xl mx-auto space-y-5">
+    <main className="min-h-screen bg-gradient-to-b from-[#050816] via-[#080d18] to-[#050816] text-white px-4 py-8">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header card */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-6">
-          <div className="flex items-center gap-4 mb-5">
-            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-lg font-bold">
-              {initials(name)}
+        <div className="bg-[#0B1120] border border-slate-800/80 rounded-xl px-7 py-5 shadow-lg shadow-black/10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-lg font-bold shadow-lg shadow-blue-500/20">
+                {initials(name)}
+              </div>
+
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Welcome back</p>
+
+                <h1 className="text-xl font-bold text-white">{name}</h1>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Continue building your career
+                </p>
+              </div>
             </div>
-            <h1 className="text-xl font-bold">{name}</h1>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-5">
             <Link
               href="/profile"
-              className="text-sm border border-blue-800/50 text-blue-400 hover:bg-blue-500/10 px-4 py-1.5 rounded-full transition-colors"
+              className="flex items-center gap-2 text-sm border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 px-4 py-2 rounded-lg transition"
             >
+              <User className="w-4 h-4" />
               My Profile
             </Link>
             <Link
               href="/career-map"
-              className="text-sm border border-gray-700 text-gray-300 hover:bg-gray-800 px-4 py-1.5 rounded-full transition-colors"
+              className="flex items-center gap-2 text-sm border border-slate-700 text-slate-300 hover:bg-slate-800/60 hover:text-white px-4 py-2 rounded-lg transition"
             >
+              <Map className="w-4 h-4" />
               Career Map
             </Link>
             <Link
               href="/careers"
-              className="text-sm border border-gray-700 text-gray-300 hover:bg-gray-800 px-4 py-1.5 rounded-full transition-colors"
+              className="flex items-center gap-2 text-sm border border-slate-700 text-slate-300 hover:bg-slate-800/60 hover:text-white px-4 py-2 rounded-lg transition"
             >
+              <BriefcaseBusiness className="w-4 h-4" />
               Compare Careers
             </Link>
           </div>
@@ -167,7 +190,7 @@ export default function DashboardPage() {
               {visibleSkills.map((id) => (
                 <span
                   key={id}
-                  className="text-sm border border-gray-700 text-gray-200 px-3 py-1 rounded-full"
+                  className="text-xs font-medium border border-slate-700/80bg-slate-800/40 text-slate-300 px-3 py-1.5 rounded-lg"
                 >
                   {skillName(id)}
                 </span>
@@ -187,7 +210,9 @@ export default function DashboardPage() {
         {/* Career Goals - Industry Readiness Radar */}
         <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-6 py-6">
           <h2 className="font-semibold flex items-center gap-2 mb-1">
-            🚩 Career Goals — Industry Readiness Radar
+            <Target className="w-5 h-5 text-blue-400" />
+            Career Goals
+            <span className="text-slate-500">— Industry Readiness</span>
           </h2>
           <p className="text-xs text-gray-500 mb-4">
             Track how closely your acquired skills match the job roles
@@ -277,31 +302,31 @@ export default function DashboardPage() {
           </div>
 
           {tab === "matches" && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {rankedRoles
                 .slice(0, 3)
                 .map(({ role, matchPercent, readiness }) => (
                   <div
                     key={role.roleId}
-                    className="bg-gray-950 border border-gray-800 rounded-xl p-4 flex flex-col"
+                    className="bg-[#060B16] border border-slate-800 rounded-xl p-5 flex flex-col hover:border-blue-500/40 hover:bg-[#08101f] transition-all duration-200"
                   >
-                    <div className="h-9 w-9 rounded-full bg-blue-500/10 border border-blue-800/50 flex items-center justify-center text-blue-400 font-semibold text-sm mb-3">
+                    <div className="h-11 w-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-semibold mb-4">
                       {role.name[0]}
                     </div>
-                    <p className="font-medium mb-1">{role.name}</p>
-                    <p className="text-xs text-gray-500 mb-3">
+                    <p className="font-semibold mb-1">{role.name}</p>
+                    <p className="text-xs text-slate-500 mb-4">
                       {getReadinessLabel(readiness)}
                     </p>
                     <div className="flex gap-2 mb-4">
-                      <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex w-fit text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-md">
                         {matchPercent}% match
                       </span>
                     </div>
                     <Link
                       href="/careers"
-                      className="mt-auto text-sm text-blue-400 hover:underline"
+                      className="mt-auto flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
                     >
-                      View more →
+                      View more <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
                 ))}
@@ -309,7 +334,7 @@ export default function DashboardPage() {
           )}
 
           {tab === "next" && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {nextSkills.length === 0 ? (
                 <p className="text-sm text-gray-500 col-span-3">
                   {topRole
@@ -333,7 +358,7 @@ export default function DashboardPage() {
                       href={`/skill/${skillId}`}
                       className="mt-auto text-sm text-blue-400 hover:underline"
                     >
-                      Start →
+                      Start <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
                 ))
@@ -342,7 +367,7 @@ export default function DashboardPage() {
           )}
 
           {tab === "projects" && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {claimedSkills.length === 0 ? (
                 <p className="text-sm text-gray-500 col-span-3">
                   No skills waiting on a project right now.
@@ -353,8 +378,8 @@ export default function DashboardPage() {
                     key={skillId}
                     className="bg-gray-950 border border-gray-800 rounded-xl p-4 flex flex-col"
                   >
-                    <div className="h-9 w-9 rounded-full bg-amber-500/10 border border-amber-800/50 flex items-center justify-center text-sm mb-3">
-                      📁
+                    <div className="h-11 w-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                      <FolderKanban className="w-5 h-5 text-amber-400" />
                     </div>
                     <p className="font-medium mb-1">{skillName(skillId)}</p>
                     <p className="text-xs text-gray-500 mb-4">
@@ -364,7 +389,7 @@ export default function DashboardPage() {
                       href={`/skill/${skillId}`}
                       className="mt-auto text-sm text-blue-400 hover:underline"
                     >
-                      View more →
+                      View more <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
                 ))
@@ -409,9 +434,19 @@ export default function DashboardPage() {
 
           <div className="flex flex-wrap gap-2">
             {skillsByStatus(progressTab).length === 0 ? (
-              <p className="text-sm text-gray-600">
-                No skills in this stage yet.
-              </p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-800/60 flex items-center justify-center mb-3">
+                  <Sparkles className="w-5 h-5 text-slate-500" />
+                </div>
+
+                <p className="text-sm text-slate-400">
+                  No skills in this stage yet
+                </p>
+
+                <p className="text-xs text-slate-600 mt-1">
+                  Keep learning to build your progress
+                </p>
+              </div>
             ) : (
               skillsByStatus(progressTab).map((id) => (
                 <span

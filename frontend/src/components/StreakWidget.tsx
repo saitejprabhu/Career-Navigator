@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { Zap, Snowflake } from "lucide-react";
 
 interface StreakData {
   streak: {
@@ -32,12 +33,19 @@ export default function StreakWidget() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="flex items-center gap-1 bg-red-500/10 border border-red-800/40 text-red-400 text-xs font-semibold px-2.5 py-1 rounded-full">
-        🔥 {data.streak.count}
-      </span>
+      {/* Streak */}
+      <div className="w-18 h-10 rounded-full border border-blue-500/30 bg-blue-500/10 flex items-center justify-center gap-1">
+        <Zap className="w-6 h-6 text-blue-400 fill-blue-400" />
+        <span className="text-10px font-semibold text-blue-400">
+          {data.streak.count}
+        </span>
+      </div>
+
+      {/* Freezes */}
       {data.streak.freezesAvailable > 0 && (
         <span className="flex items-center gap-1 bg-blue-500/10 border border-blue-800/40 text-blue-400 text-xs font-semibold px-2.5 py-1 rounded-full">
-          🧊 {data.streak.freezesAvailable}
+          <Snowflake className="w-3.5 h-3.5" />
+          {data.streak.freezesAvailable}
         </span>
       )}
     </div>

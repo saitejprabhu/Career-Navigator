@@ -18,11 +18,18 @@ export class StreakService {
     const user = await this.userModel.findById(userId);
     if (!user) throw new BadRequestException('User not found');
 
+    // safety: older user documents may not have these fields yet
+    if (!user.streak) {
+      user.streak = { count: 0, lastActiveDate: null, freezesAvailable: 0 };
+    }
+    if (!user.badges) {
+      user.badges = [];
+    }
+
     const today = new Date().toDateString();
     const last = user.streak.lastActiveDate;
 
     if (last === today) {
-      // already counted today, just return current state
       return { streak: user.streak, badges: user.badges };
     }
 
@@ -50,7 +57,6 @@ export class StreakService {
     user.streak = { count, lastActiveDate: today, freezesAvailable };
     user.markModified('streak');
 
-    // check for new badges
     const newBadges = BADGE_RULES.filter(
       (b) => count >= b.days && !user.badges.includes(b.id),
     ).map((b) => b.id);
@@ -68,6 +74,14 @@ export class StreakService {
   async getStreak(userId: string) {
     const user = await this.userModel.findById(userId);
     if (!user) throw new BadRequestException('User not found');
+
+    if (!user.streak) {
+      user.streak = { count: 0, lastActiveDate: null, freezesAvailable: 0 };
+    }
+    if (!user.badges) {
+      user.badges = [];
+    }
+
     return { streak: user.streak, badges: user.badges };
   }
 }
