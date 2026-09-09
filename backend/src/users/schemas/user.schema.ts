@@ -43,6 +43,9 @@ export class User extends Document {
 
   @Prop({ type: [String], default: [] })
   badges: string[];
+
+  @Prop({ type: [String], default: [] })
+  enrolledRoles: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

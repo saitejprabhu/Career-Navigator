@@ -28,4 +28,12 @@ export class UsersService {
   async updateProfile(id: string, profile: any) {
     return this.userModel.findByIdAndUpdate(id, { profile }, { new: true });
   }
+
+  async setEnrolledRoles(userId: string, roleIds: string[]) {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { enrolledRoles: roleIds },
+      { new: true },
+    );
+  }
 }

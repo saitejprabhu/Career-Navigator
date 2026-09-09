@@ -17,4 +17,16 @@ export class UsersController {
   async updateProfile(@Request() req, @Body() profile: any) {
     return this.usersService.updateProfile(req.user.userId, profile);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('me/roles')
+  async updateEnrolledRoles(
+    @Request() req,
+    @Body() body: { enrolledRoles: string[] },
+  ) {
+    return this.usersService.setEnrolledRoles(
+      req.user.userId,
+      body.enrolledRoles,
+    );
+  }
 }
