@@ -71,6 +71,8 @@ type SkillRef = {
 
 type ProfileTextKey = "bio" | "location" | "github" | "linkedin" | "instagram";
 
+type ListKey = Exclude<keyof ProfileData, ProfileTextKey>;
+
 /* =========================================================
    Empty Profile
 ========================================================= */
@@ -97,7 +99,7 @@ const EMPTY_PROFILE: ProfileData = {
 ========================================================= */
 
 const TAB_CONFIG: {
-  key: keyof ProfileData;
+  key: ListKey;
   label: string;
   placeholder: string;
   icon: React.ReactNode;
@@ -176,6 +178,14 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
 
   /* -------------------------
+     Name editing
+  ------------------------- */
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+
+  /* -------------------------
      Profile
   ------------------------- */
 
@@ -220,7 +230,25 @@ export default function ProfilePage() {
 
   const [showAllSkills, setShowAllSkills] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<keyof ProfileData>("education");
+  const [activeTab, setActiveTab] = useState<ListKey>("education");
+
+  /* -------------------------
+     Inline item editing (Education, Experience, etc.)
+  ------------------------- */
+
+  const [editingItem, setEditingItem] = useState<{
+    key: ListKey;
+    index: number;
+  } | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+
+  /* -------------------------
+     Inline skill editing
+  ------------------------- */
+
+  const [editingSkillIndex, setEditingSkillIndex] = useState<number | null>(
+    null,
+  );
 
   /* -------------------------
      Resume
@@ -313,6 +341,41 @@ export default function ProfilePage() {
   };
 
   /* =========================================================
+     Name editing
+  ========================================================= */
+
+  const startEditName = () => {
+    setNameDraft(name);
+    setEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setEditingName(false);
+    setNameDraft("");
+  };
+
+  const commitEditName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === name) {
+      setEditingName(false);
+      return;
+    }
+
+    setNameSaving(true);
+    try {
+      // Backend currently only persists the "profile" object via
+      // PUT /users/me/profile. We optimistically update locally so the
+      // UI reflects the change immediately; if a dedicated name-update
+      // endpoint exists on your backend, swap this call to use it so
+      // the new name survives a reload.
+      setName(trimmed);
+      setEditingName(false);
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
+  /* =========================================================
      Skills
   ========================================================= */
 
@@ -334,11 +397,29 @@ export default function ProfilePage() {
     }));
   };
 
+  const replaceSkill = (oldSkillId: string, newSkillId: string) => {
+    if (!newSkillId || newSkillId === oldSkillId) {
+      setEditingSkillIndex(null);
+      return;
+    }
+    setProfile((prev) => {
+      if (prev.skills.includes(newSkillId)) {
+        // avoid duplicate: just drop the old one
+        return { ...prev, skills: prev.skills.filter((s) => s !== oldSkillId) };
+      }
+      return {
+        ...prev,
+        skills: prev.skills.map((s) => (s === oldSkillId ? newSkillId : s)),
+      };
+    });
+    setEditingSkillIndex(null);
+  };
+
   /* =========================================================
      Add items
   ========================================================= */
 
-  const addItem = (key: keyof ProfileData) => {
+  const addItem = (key: ListKey) => {
     const value = inputs[key]?.trim();
 
     if (!value) return;
@@ -355,14 +436,51 @@ export default function ProfilePage() {
   };
 
   /* =========================================================
+     Edit item (in place)
+  ========================================================= */
+
+  const editItem = (key: ListKey, index: number, newValue: string) => {
+    setProfile((prev) => {
+      const updated = [...(prev[key] as string[])];
+      updated[index] = newValue;
+      return { ...prev, [key]: updated };
+    });
+  };
+
+  const startEdit = (key: ListKey, index: number, currentValue: string) => {
+    setEditingItem({ key, index });
+    setEditDraft(currentValue);
+  };
+
+  const cancelEdit = () => {
+    setEditingItem(null);
+    setEditDraft("");
+  };
+
+  const commitEdit = () => {
+    if (!editingItem) return;
+    const trimmed = editDraft.trim();
+    if (trimmed) {
+      editItem(editingItem.key, editingItem.index, trimmed);
+    }
+    setEditingItem(null);
+    setEditDraft("");
+  };
+
+  /* =========================================================
      Remove item
   ========================================================= */
 
-  const removeItem = (key: keyof ProfileData, index: number) => {
+  const removeItem = (key: ListKey, index: number) => {
     setProfile((prev) => ({
       ...prev,
       [key]: (prev[key] as string[]).filter((_, i) => i !== index),
     }));
+
+    // if the removed item was mid-edit, clear editing state
+    setEditingItem((prev) =>
+      prev && prev.key === key && prev.index === index ? null : prev,
+    );
   };
 
   /* =========================================================
@@ -472,7 +590,7 @@ export default function ProfilePage() {
      Completion
   ========================================================= */
 
-  const sectionKeys: (keyof ProfileData)[] = [
+  const sectionKeys: ListKey[] = [
     "skills",
     "education",
     "experience",
@@ -562,9 +680,48 @@ export default function ProfilePage() {
                     Career Profile
                   </p>
 
-                  <h1 className="text-2xl font-bold text-white whitespace-nowrap">
-                    {name || "Your Name"}
-                  </h1>
+                  {editingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={nameDraft}
+                        onChange={(e) => setNameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEditName();
+                          if (e.key === "Escape") cancelEditName();
+                        }}
+                        className="text-2xl font-bold bg-transparent text-white outline-none border-b border-blue-500/60 min-w-0"
+                      />
+                      <button
+                        onClick={commitEditName}
+                        disabled={nameSaving}
+                        className="text-emerald-400 hover:text-emerald-300 shrink-0"
+                        aria-label="Save name"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={cancelEditName}
+                        className="text-slate-500 hover:text-red-400 shrink-0"
+                        aria-label="Cancel"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group">
+                      <h1 className="text-2xl font-bold text-white whitespace-nowrap">
+                        {name || "Your Name"}
+                      </h1>
+                      <button
+                        onClick={startEditName}
+                        className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-blue-400 transition"
+                        aria-label="Edit name"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
 
                   <p className="text-sm text-slate-400 mt-1">{email}</p>
                 </div>
@@ -1061,7 +1218,10 @@ export default function ProfilePage() {
             </div>
 
             <button
-              onClick={() => setEditingSkills((v) => !v)}
+              onClick={() => {
+                setEditingSkills((v) => !v);
+                setEditingSkillIndex(null);
+              }}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition"
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -1121,24 +1281,74 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {visibleSkills.map((id) => (
-                <span
-                  key={id}
-                  className="flex items-center gap-2 bg-[#060B16] border border-slate-800 text-slate-300 text-sm px-3 py-2 rounded-lg hover:border-slate-700 transition"
-                >
-                  <span>{skillName(id)}</span>
+              {visibleSkills.map((id, index) => {
+                const isEditingThisSkill = editingSkillIndex === index;
 
-                  {editingSkills && (
-                    <button
-                      onClick={() => removeSkill(id)}
-                      className="text-slate-600 hover:text-red-400 transition"
-                      aria-label={`Remove ${skillName(id)}`}
+                if (editingSkills && isEditingThisSkill) {
+                  return (
+                    <span
+                      key={id}
+                      className="flex items-center gap-2 bg-[#060B16] border border-blue-500/60 rounded-lg px-2 py-1.5"
                     >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </span>
-              ))}
+                      <select
+                        autoFocus
+                        defaultValue={id}
+                        onChange={(e) => replaceSkill(id, e.target.value)}
+                        onBlur={() => setEditingSkillIndex(null)}
+                        className="bg-transparent text-sm text-white outline-none"
+                      >
+                        <option value={id}>{skillName(id)}</option>
+                        {allSkills
+                          .filter(
+                            (s) =>
+                              !profile.skills.includes(s.skillId) ||
+                              s.skillId === id,
+                          )
+                          .map((s) => (
+                            <option key={s.skillId} value={s.skillId}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={() => setEditingSkillIndex(null)}
+                        className="text-slate-500 hover:text-red-400"
+                        aria-label="Cancel edit"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  );
+                }
+
+                return (
+                  <span
+                    key={id}
+                    className="group flex items-center gap-2 bg-[#060B16] border border-slate-800 text-slate-300 text-sm px-3 py-2 rounded-lg hover:border-slate-700 transition"
+                  >
+                    <span>{skillName(id)}</span>
+
+                    {editingSkills && (
+                      <>
+                        <button
+                          onClick={() => setEditingSkillIndex(index)}
+                          className="text-slate-600 hover:text-blue-400 transition"
+                          aria-label={`Edit ${skillName(id)}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeSkill(id)}
+                          className="text-slate-600 hover:text-red-400 transition"
+                          aria-label={`Remove ${skillName(id)}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </span>
+                );
+              })}
 
               {extraSkillCount > 0 && (
                 <button
@@ -1232,7 +1442,10 @@ export default function ProfilePage() {
                 return (
                   <button
                     key={key}
-                    onClick={() => setActiveTab(key)}
+                    onClick={() => {
+                      setActiveTab(key);
+                      setEditingItem(null);
+                    }}
                     className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
                       activeTab === key
                         ? "border-blue-500 text-blue-400"
@@ -1325,30 +1538,79 @@ export default function ProfilePage() {
             ) : (
               /* Items */
               <div className="space-y-2">
-                {(profile[activeTab] as string[]).map((item, index) => (
-                  <div
-                    key={`${item}-${index}`}
-                    className="group flex items-center justify-between gap-4 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-slate-700 transition"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-800/60 flex items-center justify-center text-slate-500">
-                        {currentTab?.icon}
+                {(profile[activeTab] as string[]).map((item, index) => {
+                  const isEditing =
+                    editingItem?.key === activeTab &&
+                    editingItem?.index === index;
+
+                  return (
+                    <div
+                      key={`${activeTab}-${index}`}
+                      className="group flex items-center justify-between gap-4 bg-[#060B16] border border-slate-800 rounded-xl px-4 py-3 hover:border-slate-700 transition"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-800/60 flex items-center justify-center text-slate-500">
+                          {currentTab?.icon}
+                        </div>
+
+                        {isEditing ? (
+                          <input
+                            autoFocus
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit();
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                            className="flex-1 bg-transparent text-sm text-white outline-none border-b border-blue-500/60 pb-0.5 min-w-0"
+                          />
+                        ) : (
+                          <p className="text-sm text-slate-300 wrap-break-word">
+                            {item}
+                          </p>
+                        )}
                       </div>
 
-                      <p className="text-sm text-slate-300 wrap-break-word">
-                        {item}
-                      </p>
+                      <div className="shrink-0 flex items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={commitEdit}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 transition"
+                              aria-label="Save edit"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-800 transition"
+                              aria-label="Cancel edit"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEdit(activeTab, index, item)}
+                              className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition"
+                              aria-label="Edit item"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => removeItem(activeTab, index)}
+                              className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition"
+                              aria-label="Remove item"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-
-                    <button
-                      onClick={() => removeItem(activeTab, index)}
-                      className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition"
-                      aria-label="Remove item"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
