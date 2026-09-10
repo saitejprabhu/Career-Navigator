@@ -14,17 +14,28 @@ const BADGE_RULES = [
 export class StreakService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
-  async checkStreak(userId: string) {
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new BadRequestException('User not found');
-
-    // safety: older user documents may not have these fields yet
+  private ensureValidStreakFields(user: User) {
     if (!user.streak) {
       user.streak = { count: 0, lastActiveDate: null, freezesAvailable: 0 };
     }
     if (!user.badges) {
       user.badges = [];
     }
+
+    // Guard against corrupted/legacy values (e.g. strings, null, NaN)
+    user.streak.count = Number(user.streak.count) || 0;
+    user.streak.freezesAvailable = Number(user.streak.freezesAvailable) || 0;
+
+    if (typeof user.streak.lastActiveDate !== 'string') {
+      user.streak.lastActiveDate = null;
+    }
+  }
+
+  async checkStreak(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+
+    this.ensureValidStreakFields(user);
 
     const today = new Date().toDateString();
     const last = user.streak.lastActiveDate;
@@ -75,12 +86,7 @@ export class StreakService {
     const user = await this.userModel.findById(userId);
     if (!user) throw new BadRequestException('User not found');
 
-    if (!user.streak) {
-      user.streak = { count: 0, lastActiveDate: null, freezesAvailable: 0 };
-    }
-    if (!user.badges) {
-      user.badges = [];
-    }
+    this.ensureValidStreakFields(user);
 
     return { streak: user.streak, badges: user.badges };
   }

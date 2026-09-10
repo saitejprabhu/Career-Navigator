@@ -12,13 +12,15 @@ import {
   BookOpen,
   FolderKanban,
   Trophy,
-  Lock,
   Sparkles,
   ChevronRight,
+  Video,
+  FileText,
 } from "lucide-react";
 
 import api from "@/lib/api";
 import { getReadinessScore, getReadinessLabel } from "@/utils/readiness";
+import { getSkillResource } from "@/data/skillResources";
 
 interface Role {
   roleId: string;
@@ -175,7 +177,7 @@ export default function RoadmapsPage() {
     0,
   );
 
-  const completedSkills = enrolledRoleObjects.reduce(
+  const completedSkillsCount = enrolledRoleObjects.reduce(
     (total, role) =>
       total +
       role.requiredSkills.filter((skillId) => skillStatus[skillId]?.status)
@@ -184,7 +186,9 @@ export default function RoadmapsPage() {
   );
 
   const overallProgress =
-    totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+    totalSkills > 0
+      ? Math.round((completedSkillsCount / totalSkills) * 100)
+      : 0;
 
   /* =====================================================
      LOADING
@@ -285,7 +289,7 @@ export default function RoadmapsPage() {
             </div>
 
             <p className="mt-2 text-[11px] text-slate-600">
-              {completedSkills} of {totalSkills} skills completed
+              {completedSkillsCount} of {totalSkills} skills completed
             </p>
           </div>
         </div>
@@ -296,6 +300,9 @@ export default function RoadmapsPage() {
 
         {(() => {
           const firstRole = enrolledRoleObjects[0];
+
+          if (!firstRole) return null;
+
           const nextSkill = getNextSkill(firstRole);
 
           if (!nextSkill) return null;
@@ -472,7 +479,9 @@ export default function RoadmapsPage() {
                         </div>
 
                         <button
-                          onClick={() => router.push("/career-map")}
+                          onClick={() =>
+                            router.push(`/career-map?role=${role.roleId}`)
+                          }
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition"
                         >
                           Continue
@@ -498,60 +507,79 @@ export default function RoadmapsPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {role.requiredSkills.map((skillId, index) => {
+                      {role.requiredSkills.map((skillId) => {
                         const completed = !!skillStatus[skillId]?.status;
-
                         const isNext = skillId === nextSkill;
+                        const resource = getSkillResource(skillId);
 
                         return (
-                          <div
-                            key={skillId}
-                            className={`
-                                flex items-center gap-3
-                                rounded-lg
-                                border
-                                px-3 py-2.5
-                                ${
-                                  completed
-                                    ? "border-emerald-500/20 bg-emerald-500/5"
-                                    : isNext
-                                      ? "border-blue-500/30 bg-blue-500/5"
-                                      : "border-slate-800 bg-[#060B16]"
-                                }
-                              `}
-                          >
-                            <div className="shrink-0">
-                              {completed ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                              ) : isNext ? (
-                                <Target className="w-4 h-4 text-blue-400" />
-                              ) : (
-                                <Circle className="w-4 h-4 text-slate-700" />
-                              )}
-                            </div>
+                          <div key={skillId} className="flex flex-col">
+                            <div
+                              className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${
+                                completed
+                                  ? "border-emerald-500/20 bg-emerald-500/5"
+                                  : isNext
+                                    ? "border-blue-500/30 bg-blue-500/5"
+                                    : "border-slate-800 bg-[#060B16]"
+                              }`}
+                            >
+                              <div className="shrink-0">
+                                {completed ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                ) : isNext ? (
+                                  <Target className="w-4 h-4 text-blue-400" />
+                                ) : (
+                                  <Circle className="w-4 h-4 text-slate-700" />
+                                )}
+                              </div>
 
-                            <div className="min-w-0">
-                              <p
-                                className={`
-                                    text-xs truncate
-                                    ${
-                                      completed
-                                        ? "text-emerald-400"
-                                        : isNext
-                                          ? "text-blue-400"
-                                          : "text-slate-400"
-                                    }
-                                  `}
-                              >
-                                {getSkillName(skillId)}
-                              </p>
-
-                              {isNext && (
-                                <p className="text-[10px] text-blue-500/70 mt-0.5">
-                                  Next
+                              <div className="min-w-0">
+                                <p
+                                  className={`text-xs truncate ${
+                                    completed
+                                      ? "text-emerald-400"
+                                      : isNext
+                                        ? "text-blue-400"
+                                        : "text-slate-400"
+                                  }`}
+                                >
+                                  {getSkillName(skillId)}
                                 </p>
-                              )}
+
+                                {isNext && (
+                                  <p className="text-[10px] text-blue-500/70 mt-0.5">
+                                    Next
+                                  </p>
+                                )}
+                              </div>
                             </div>
+
+                            {isNext && resource && (
+                              <div className="mt-2 rounded-lg border border-slate-800 bg-[#060B16] px-3 py-2.5 space-y-1.5">
+                                <a
+                                  href={resource.videoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-2 text-[11px] text-slate-400 hover:text-blue-400 transition"
+                                >
+                                  <Video className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {resource.videoTitle}
+                                  </span>
+                                </a>
+                                <a
+                                  href={resource.docUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-2 text-[11px] text-slate-400 hover:text-blue-400 transition"
+                                >
+                                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {resource.docTitle}
+                                  </span>
+                                </a>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -563,7 +591,9 @@ export default function RoadmapsPage() {
 
                     <div className="mt-6 flex flex-col sm:flex-row gap-3">
                       <button
-                        onClick={() => router.push("/career-map")}
+                        onClick={() =>
+                          router.push(`/career-map?role=${role.roleId}`)
+                        }
                         className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 transition"
                       >
                         Continue Learning
@@ -571,7 +601,9 @@ export default function RoadmapsPage() {
                       </button>
 
                       <button
-                        onClick={() => router.push("/career-map")}
+                        onClick={() =>
+                          router.push(`/career-map?role=${role.roleId}`)
+                        }
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-[#060B16] px-4 py-2.5 text-sm font-medium text-slate-300 hover:border-slate-700 hover:text-white transition"
                       >
                         <Map className="w-4 h-4" />

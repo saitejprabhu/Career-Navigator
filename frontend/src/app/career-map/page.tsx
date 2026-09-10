@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getSkillResource } from "@/data/skillResources";
 
 import ReactFlow, {
   Background,
@@ -27,11 +28,14 @@ import {
   Circle,
   Clock3,
   Code2,
+  FileText,
   Lock,
   Map,
   Play,
   Sparkles,
   Target,
+  Trophy,
+  Video,
   X,
 } from "lucide-react";
 
@@ -359,6 +363,25 @@ export default function CareerMapPage() {
   const nextSkill = roleSkills.find(
     (skill) => !progress[skill.skillId]?.status,
   );
+
+  /* =======================================================
+     SELECTED SKILL DERIVED DATA
+     Computed once here (not inline in JSX) to keep the panel's
+     JSX as simple conditional rendering, with no nested
+     immediately-invoked functions that are easy to break.
+  ======================================================= */
+
+  const selectedSkillStatus = selectedSkill
+    ? progress[selectedSkill.skillId]?.status || ""
+    : "";
+
+  const selectedSkillResource = selectedSkill
+    ? getSkillResource(selectedSkill.skillId)
+    : null;
+
+  const selectedSkillRelatedRoles = selectedSkill
+    ? roles.filter((r) => r.requiredSkills.includes(selectedSkill.skillId))
+    : [];
 
   /* =======================================================
      SKILL CLICK
@@ -781,13 +804,14 @@ export default function CareerMapPage() {
             </div>
 
             <div className="h-[calc(100%-65px)] overflow-y-auto p-5">
+              {/* Current status */}
               <div className="rounded-xl border border-slate-800 bg-[#0B1120] p-4">
                 <p className="text-[10px] uppercase tracking-widest text-slate-600">
                   Current status
                 </p>
 
                 <div className="mt-3 flex items-center gap-3">
-                  {progress[selectedSkill.skillId]?.status === "mastered" ? (
+                  {selectedSkillStatus === "mastered" ? (
                     <>
                       <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                       <div>
@@ -799,8 +823,7 @@ export default function CareerMapPage() {
                         </p>
                       </div>
                     </>
-                  ) : progress[selectedSkill.skillId]?.status ===
-                    "practiced" ? (
+                  ) : selectedSkillStatus === "practiced" ? (
                     <>
                       <Play className="h-5 w-5 text-blue-400" />
                       <div>
@@ -812,7 +835,7 @@ export default function CareerMapPage() {
                         </p>
                       </div>
                     </>
-                  ) : progress[selectedSkill.skillId]?.status === "claimed" ? (
+                  ) : selectedSkillStatus === "claimed" ? (
                     <>
                       <Clock3 className="h-5 w-5 text-yellow-400" />
                       <div>
@@ -840,16 +863,124 @@ export default function CareerMapPage() {
                 </div>
               </div>
 
-              <div className="mt-5">
-                <h3 className="text-xs font-semibold text-white">
-                  About this skill
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {selectedSkill.description ||
-                    `Learn ${selectedSkill.name} and build the practical knowledge required for your ${activeRole?.name} pathway.`}
-                </p>
-              </div>
+              {/* Personalized Pathway */}
+              {selectedSkillResource && (
+                <div className="mt-6 space-y-5">
+                  <div>
+                    <h3 className="text-xs font-semibold text-white">
+                      About this skill
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {selectedSkillResource.description}
+                    </p>
+                  </div>
 
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wide text-blue-400 mb-1">
+                      Why it matters
+                    </p>
+                    <p className="text-sm leading-6 text-slate-300">
+                      {selectedSkillResource.whyItMatters}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    Estimated time:{" "}
+                    <span className="text-slate-300">
+                      {selectedSkillResource.estimatedTime}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xs font-semibold text-white mb-3">
+                      Learning Resources
+                    </h3>
+
+                    <div className="space-y-2">
+                      <a
+                        href={selectedSkillResource.videoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 rounded-lg border border-slate-800 bg-[#0B1120] px-3 py-2.5 hover:border-blue-500/40 transition"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <Video className="h-3.5 w-3.5 text-blue-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-600">
+                            Crash Course Video
+                          </p>
+                          <p className="text-xs text-slate-300 truncate">
+                            {selectedSkillResource.videoTitle}
+                          </p>
+                        </div>
+                      </a>
+
+                      <a
+                        href={selectedSkillResource.docUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 rounded-lg border border-slate-800 bg-[#0B1120] px-3 py-2.5 hover:border-blue-500/40 transition"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <FileText className="h-3.5 w-3.5 text-purple-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-600">
+                            Documentation
+                          </p>
+                          <p className="text-xs text-slate-300 truncate">
+                            {selectedSkillResource.docTitle}
+                          </p>
+                        </div>
+                      </a>
+
+                      {selectedSkillResource.certificationTitle &&
+                        selectedSkillResource.certificationUrl && (
+                          <a
+                            href={selectedSkillResource.certificationUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-3 rounded-lg border border-slate-800 bg-[#0B1120] px-3 py-2.5 hover:border-emerald-500/40 transition"
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-wide text-slate-600">
+                                Certification
+                              </p>
+                              <p className="text-xs text-slate-300 truncate">
+                                {selectedSkillResource.certificationTitle}
+                              </p>
+                            </div>
+                          </a>
+                        )}
+                    </div>
+                  </div>
+
+                  {selectedSkillRelatedRoles.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-white mb-2">
+                        Related Career Roles
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSkillRelatedRoles.map((r) => (
+                          <span
+                            key={r.roleId}
+                            className="text-xs px-2.5 py-1 rounded-full border border-indigo-700 text-indigo-400"
+                          >
+                            {r.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Prerequisites */}
               {selectedSkill.prerequisites &&
                 selectedSkill.prerequisites.length > 0 && (
                   <div className="mt-6">
@@ -887,11 +1018,12 @@ export default function CareerMapPage() {
                   </div>
                 )}
 
+              {/* Actions */}
               <div className="mt-7">
                 <h3 className="text-xs font-semibold text-white">Progress</h3>
 
                 <div className="mt-3 space-y-2">
-                  {!progress[selectedSkill.skillId]?.status && (
+                  {!selectedSkillStatus && (
                     <button
                       disabled={actionLoading}
                       onClick={() =>
@@ -904,9 +1036,8 @@ export default function CareerMapPage() {
                     </button>
                   )}
 
-                  {(progress[selectedSkill.skillId]?.status === "claimed" ||
-                    progress[selectedSkill.skillId]?.status ===
-                      "practiced") && (
+                  {(selectedSkillStatus === "claimed" ||
+                    selectedSkillStatus === "practiced") && (
                     <button
                       onClick={() =>
                         router.push(`/skill/${selectedSkill.skillId}`)
@@ -914,13 +1045,13 @@ export default function CareerMapPage() {
                       className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-medium text-white hover:bg-blue-500 transition"
                     >
                       <BookOpen className="h-4 w-4" />
-                      {progress[selectedSkill.skillId]?.status === "practiced"
+                      {selectedSkillStatus === "practiced"
                         ? "Finish Second Project"
                         : "Build a Project to Progress"}
                     </button>
                   )}
 
-                  {progress[selectedSkill.skillId]?.status === "mastered" && (
+                  {selectedSkillStatus === "mastered" && (
                     <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs font-medium text-emerald-400">
                       <CheckCircle2 className="h-4 w-4" />
                       Skill mastered

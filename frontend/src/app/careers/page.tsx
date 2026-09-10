@@ -344,7 +344,9 @@ export default function CareersPage() {
                       <div className="mt-6">
                         {isEnrolled ? (
                           <button
-                            onClick={() => router.push("/career-map")}
+                            onClick={() =>
+                              router.push(`/career-map?role=${role.roleId}`)
+                            }
                             className="flex w-full items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-400 hover:bg-blue-500/15 transition"
                           >
                             Continue pathway
