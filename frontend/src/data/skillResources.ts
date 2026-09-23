@@ -76,6 +76,28 @@ export const SKILL_RESOURCES: Record<string, SkillResource> = {
     docUrl: "https://nodejs.org/en/docs",
     estimatedTime: "2-3 weeks",
   },
+  git: {
+    description:
+      "Git is a distributed version control system that tracks changes to code, allowing developers to collaborate, review history, and safely experiment with branches.",
+    whyItMatters:
+      "Git is used on virtually every professional software team. It's often the very first skill employers expect, regardless of role or tech stack.",
+    videoTitle: "Git and GitHub for Beginners",
+    videoUrl: "https://www.youtube.com/watch?v=RGOj5yH7evk",
+    docTitle: "Git Official Documentation",
+    docUrl: "https://git-scm.com/doc",
+    estimatedTime: "3-5 days",
+  },
+  typescript: {
+    description:
+      "TypeScript is a typed superset of JavaScript that adds static type-checking, catching errors during development rather than at runtime.",
+    whyItMatters:
+      "TypeScript is now standard in most professional React and Node.js codebases — it's frequently listed as a requirement, not just a nice-to-have.",
+    videoTitle: "TypeScript Course for Beginners",
+    videoUrl: "https://www.youtube.com/watch?v=BwuLxPH8IDs",
+    docTitle: "TypeScript Official Handbook",
+    docUrl: "https://www.typescriptlang.org/docs/handbook/intro.html",
+    estimatedTime: "1-2 weeks",
+  },
 };
 
 export function getSkillResource(skillId: string): SkillResource | null {

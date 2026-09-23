@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import axios from "axios";
 import { getSkillResource } from "@/data/skillResources";
+import { isSkillStale } from "@/utils/skillDecay";
 
 import ReactFlow, {
   Background,
@@ -58,24 +60,44 @@ interface Skill {
   description?: string;
 }
 
+// A skill with no progress entry is simply "not started" (no status).
+type SkillStatus = "claimed" | "practiced" | "mastered";
+
 interface SkillProgress {
-  status: string;
+  status: SkillStatus;
   lastUpdated: string;
 }
 
 interface SkillNodeData {
   skill: Skill;
-  status: string;
+  status: SkillStatus | "";
   locked: boolean;
+  stale: boolean;
   onClick: (skill: Skill) => void;
 }
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+/**
+ * A prerequisite only counts as satisfied once the learner has
+ * actually practiced or mastered it (i.e. passed a project).
+ * Merely "claimed" (clicked Start Learning) does not unlock anything.
+ * Change to `p?.status === "mastered"` if you want a stricter rule.
+ */
+const isDone = (p?: SkillProgress) =>
+  p?.status === "practiced" || p?.status === "mastered";
+
+const isStale = (p?: SkillProgress) =>
+  p?.status === "mastered" && !!p.lastUpdated && isSkillStale(p.lastUpdated);
 
 /* =========================================================
    SKILL NODE
 ========================================================= */
 
 function SkillNode({ data }: NodeProps<SkillNodeData>) {
-  const { skill, status, locked, onClick } = data;
+  const { skill, status, locked, stale, onClick } = data;
 
   const mastered = status === "mastered";
   const practiced = status === "practiced";
@@ -137,23 +159,32 @@ function SkillNode({ data }: NodeProps<SkillNodeData>) {
             )}
           </div>
 
-          {mastered && (
-            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400">
-              DONE
-            </span>
-          )}
+          {/* Badges stack vertically so DONE + NEEDS REFRESH fit in the card */}
+          <div className="flex flex-col items-end gap-1">
+            {mastered && (
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400">
+                DONE
+              </span>
+            )}
 
-          {practiced && (
-            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[9px] font-medium text-blue-400">
-              PRACTICED
-            </span>
-          )}
+            {practiced && (
+              <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[9px] font-medium text-blue-400">
+                PRACTICED
+              </span>
+            )}
 
-          {claimed && (
-            <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-medium text-yellow-400">
-              CLAIMED
-            </span>
-          )}
+            {claimed && (
+              <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-medium text-yellow-400">
+                CLAIMED
+              </span>
+            )}
+
+            {mastered && stale && (
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium text-amber-400">
+                NEEDS REFRESH
+              </span>
+            )}
+          </div>
         </div>
 
         <h3 className="mt-3 truncate text-sm font-semibold text-white">
@@ -243,10 +274,25 @@ const nodeTypes = {
 };
 
 /* =========================================================
-   MAIN PAGE
+   LOADING VIEW (used by Suspense fallback and data loading)
 ========================================================= */
 
-export default function CareerMapPage() {
+function CareerMapLoading() {
+  return (
+    <main className="min-h-screen bg-[#050816] text-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <p className="text-sm text-slate-500">Building your career map...</p>
+      </div>
+    </main>
+  );
+}
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+function CareerMapContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -257,7 +303,10 @@ export default function CareerMapPage() {
   const [activeRoleId, setActiveRoleId] = useState<string>("");
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /* =======================================================
      LOAD DATA
@@ -271,18 +320,21 @@ export default function CareerMapPage() {
       return;
     }
 
+    let cancelled = false;
+    const auth = { headers: { Authorization: `Bearer ${token}` } };
+
     Promise.all([
       api.get("/roles"),
       api.get("/skills"),
-      api.get("/users/me", { headers: { Authorization: `Bearer ${token}` } }),
-      api.get("/progress/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      api.get("/users/me", auth),
+      api.get("/progress/me", auth),
     ])
       .then(([rolesRes, skillsRes, userRes, progressRes]) => {
+        if (cancelled) return;
+
         const roleData: Role[] = rolesRes.data || [];
         const skillData: Skill[] = skillsRes.data || [];
-        const enrolled = userRes.data.enrolledRoles || [];
+        const enrolled: string[] = userRes.data.enrolledRoles || [];
 
         setRoles(roleData);
         setSkills(skillData);
@@ -302,13 +354,28 @@ export default function CareerMapPage() {
         }
       })
       .catch((error) => {
+        if (cancelled) return;
+
+        // Expired / invalid token: send the learner to log in instead of
+        // showing a misleading "career map is empty" screen.
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          localStorage.removeItem("token");
+          router.push("/login");
+          return;
+        }
+
         console.error("Failed to load career map:", error);
+        setLoadError("We couldn't load your career map. Please try again.");
       })
       .finally(() => {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [router, reloadKey]);
 
   /* =======================================================
      ACTIVE ROLE
@@ -340,6 +407,27 @@ export default function CareerMapPage() {
   }, [activeRole, skillMap]);
 
   /* =======================================================
+     LOCK CHECK (single source of truth)
+
+     Used by the map nodes, "Recommended Next", and the panel's
+     Start Learning button. Only prerequisites that are part of the
+     active role count, because those are the only ones that appear
+     on this map (as nodes/edges) and can be acted on from here.
+     To lock on every prerequisite regardless of role, drop the
+     `includes` check.
+  ======================================================= */
+
+  const isLocked = useCallback(
+    (skill: Skill) => {
+      if (!activeRole) return false;
+      return (skill.prerequisites ?? [])
+        .filter((id) => activeRole.requiredSkills.includes(id))
+        .some((id) => !isDone(progress[id]));
+    },
+    [activeRole, progress],
+  );
+
+  /* =======================================================
      PROGRESS
   ======================================================= */
 
@@ -357,11 +445,11 @@ export default function CareerMapPage() {
       : 0;
 
   /* =======================================================
-     NEXT SKILL
+     NEXT SKILL (never a locked one)
   ======================================================= */
 
   const nextSkill = roleSkills.find(
-    (skill) => !progress[skill.skillId]?.status,
+    (skill) => !progress[skill.skillId]?.status && !isLocked(skill),
   );
 
   /* =======================================================
@@ -371,9 +459,15 @@ export default function CareerMapPage() {
      immediately-invoked functions that are easy to break.
   ======================================================= */
 
-  const selectedSkillStatus = selectedSkill
+  const selectedSkillStatus: SkillStatus | "" = selectedSkill
     ? progress[selectedSkill.skillId]?.status || ""
     : "";
+
+  const selectedSkillStale = selectedSkill
+    ? isStale(progress[selectedSkill.skillId])
+    : false;
+
+  const selectedSkillLocked = selectedSkill ? isLocked(selectedSkill) : false;
 
   const selectedSkillResource = selectedSkill
     ? getSkillResource(selectedSkill.skillId)
@@ -388,6 +482,7 @@ export default function CareerMapPage() {
   ======================================================= */
 
   const handleSkillClick = useCallback((skill: Skill) => {
+    setActionError(null);
     setSelectedSkill(skill);
   }, []);
 
@@ -399,13 +494,20 @@ export default function CareerMapPage() {
      once the learner submits and passes the stage-gated projects for
      that skill (see /skill/[skillId]) — it is never set directly from
      this page.
+
+     NOTE: the lock check above is UX only. The backend should also
+     reject /progress/mark-learned when prerequisites aren't met.
   ======================================================= */
 
-  const updateSkillStatus = async (skillId: string, action: "claim") => {
+  const claimSkill = async (skillId: string) => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      router.push("/login");
+      return;
+    }
 
     setActionLoading(true);
+    setActionError(null);
 
     try {
       await api.post(
@@ -419,7 +521,13 @@ export default function CareerMapPage() {
         [skillId]: { status: "claimed", lastUpdated: new Date().toISOString() },
       }));
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        localStorage.removeItem("token");
+        router.push("/login");
+        return;
+      }
       console.error("Failed to mark skill as learned:", error);
+      setActionError("Couldn't start this skill. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -439,17 +547,14 @@ export default function CareerMapPage() {
       const column = index % columns;
       const row = Math.floor(index / columns);
       const status = progress[skill.skillId]?.status || "";
-      const prerequisites = skill.prerequisites || [];
-
-      const locked =
-        prerequisites.length > 0 &&
-        prerequisites.some((id) => !progress[id]?.status);
+      const stale = isStale(progress[skill.skillId]);
+      const locked = isLocked(skill);
 
       nodes.push({
         id: skill.skillId,
         type: "skill",
         position: { x: column * 280, y: row * 170 },
-        data: { skill, status, locked, onClick: handleSkillClick },
+        data: { skill, status, locked, stale, onClick: handleSkillClick },
       });
     });
 
@@ -463,7 +568,14 @@ export default function CareerMapPage() {
     });
 
     return nodes;
-  }, [activeRole, roleSkills, progress, progressPercent, handleSkillClick]);
+  }, [
+    activeRole,
+    roleSkills,
+    progress,
+    progressPercent,
+    isLocked,
+    handleSkillClick,
+  ]);
 
   /* =======================================================
      CREATE EDGES
@@ -535,14 +647,35 @@ export default function CareerMapPage() {
 
   /* =======================================================
      LOADING
+     (All hooks are declared above; early returns start here.)
   ======================================================= */
 
   if (loading) {
+    return <CareerMapLoading />;
+  }
+
+  /* =======================================================
+     LOAD ERROR
+     Checked before the empty state so a failed request is never
+     mistaken for "not enrolled in anything".
+  ======================================================= */
+
+  if (loadError) {
     return (
-      <main className="min-h-screen bg-[#050816] text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <p className="text-sm text-slate-500">Building your career map...</p>
+      <main className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <p className="text-sm text-slate-400">{loadError}</p>
+
+          <button
+            onClick={() => {
+              setLoadError(null);
+              setLoading(true);
+              setReloadKey((k) => k + 1);
+            }}
+            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition"
+          >
+            Try again
+          </button>
         </div>
       </main>
     );
@@ -619,7 +752,10 @@ export default function CareerMapPage() {
               <div className="relative">
                 <select
                   value={activeRoleId}
-                  onChange={(e) => setActiveRoleId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedSkill(null);
+                    setActiveRoleId(e.target.value);
+                  }}
                   className="appearance-none rounded-lg border border-slate-800 bg-[#0B1120] py-2.5 pl-4 pr-10 text-sm text-slate-200 outline-none hover:border-slate-700 focus:border-blue-500/50"
                 >
                   {roles
@@ -749,7 +885,7 @@ export default function CareerMapPage() {
               </p>
 
               <button
-                onClick={() => setSelectedSkill(nextSkill)}
+                onClick={() => handleSkillClick(nextSkill)}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 transition"
               >
                 Open Skill
@@ -759,7 +895,9 @@ export default function CareerMapPage() {
           </div>
         )}
 
+        {/* key remounts the flow on role change so fitView runs again */}
         <ReactFlow
+          key={activeRoleId}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -855,12 +993,24 @@ export default function CareerMapPage() {
                           Not started
                         </p>
                         <p className="text-[11px] text-slate-600">
-                          Start learning this skill.
+                          {selectedSkillLocked
+                            ? "Complete the prerequisites below first."
+                            : "Start learning this skill."}
                         </p>
                       </div>
                     </>
                   )}
                 </div>
+
+                {/* Stale notice lives outside the flex row and the ternary */}
+                {selectedSkillStale && (
+                  <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                    <p className="text-xs text-amber-400">
+                      ⏰ You mastered this a while ago — consider a quick
+                      refresher.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Personalized Pathway */}
@@ -991,7 +1141,7 @@ export default function CareerMapPage() {
                     <div className="mt-3 space-y-2">
                       {selectedSkill.prerequisites.map((id) => {
                         const prerequisite = skillMap[id];
-                        const done = !!progress[id]?.status;
+                        const done = isDone(progress[id]);
 
                         return (
                           <div
@@ -1024,16 +1174,29 @@ export default function CareerMapPage() {
 
                 <div className="mt-3 space-y-2">
                   {!selectedSkillStatus && (
-                    <button
-                      disabled={actionLoading}
-                      onClick={() =>
-                        updateSkillStatus(selectedSkill.skillId, "claim")
-                      }
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-4 py-2.5 text-xs font-medium text-yellow-400 hover:bg-yellow-500/15 transition disabled:opacity-50"
-                    >
-                      <Clock3 className="h-4 w-4" />
-                      Start Learning
-                    </button>
+                    <>
+                      <button
+                        disabled={selectedSkillLocked || actionLoading}
+                        onClick={() => claimSkill(selectedSkill.skillId)}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-4 py-2.5 text-xs font-medium text-yellow-400 hover:bg-yellow-500/15 transition disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Clock3 className="h-4 w-4" />
+                        Start Learning
+                      </button>
+
+                      {selectedSkillLocked && (
+                        <p className="text-[11px] text-slate-500">
+                          Practice or master the prerequisites above to unlock
+                          this skill.
+                        </p>
+                      )}
+
+                      {actionError && (
+                        <p className="text-[11px] text-red-400">
+                          {actionError}
+                        </p>
+                      )}
+                    </>
                   )}
 
                   {(selectedSkillStatus === "claimed" ||
@@ -1072,5 +1235,19 @@ export default function CareerMapPage() {
         )}
       </div>
     </main>
+  );
+}
+
+/* =========================================================
+   PAGE EXPORT
+   useSearchParams() must sit under a Suspense boundary or
+   `next build` fails during static prerendering.
+========================================================= */
+
+export default function CareerMapPage() {
+  return (
+    <Suspense fallback={<CareerMapLoading />}>
+      <CareerMapContent />
+    </Suspense>
   );
 }
