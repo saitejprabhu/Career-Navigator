@@ -10,6 +10,8 @@ import { ProgressModule } from './progress/progress.module';
 import { ProjectsModule } from './projects/projects.module';
 import { StreakModule } from './streak/streak.module';
 import { JobsModule } from './jobs/jobs.module';
+import { AiModule } from './ai/ai.module';
+import { SalaryModule } from './salary/salary.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { JobsModule } from './jobs/jobs.module';
     ProjectsModule,
     StreakModule,
     JobsModule,
+    AiModule,
+    SalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

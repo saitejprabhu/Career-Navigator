@@ -8,47 +8,46 @@ export type SectionKey =
   | "interests";
 
 const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
-  education: ["education", "academic background", "academics", "qualification"],
+  education: ["education", "academic background", "academics", "qualification", "degree", "schooling", "university"],
   experience: [
     "experience",
     "work experience",
     "professional experience",
     "employment",
+    "work history",
+    "career summary",
   ],
-  internships: ["internship", "internships"],
+  internships: ["internship", "internships", "apprentice", "trainee"],
   certifications: [
     "certification",
     "certifications",
     "courses",
     "courses & certifications",
     "licenses",
+    "certificates",
+    "credentials",
   ],
-  hackathons: ["hackathon", "hackathons"],
-  projects: ["project", "projects", "personal projects"],
-  interests: ["interest", "interests", "hobbies"],
+  hackathons: ["hackathon", "hackathons", "competitions", "coding contests"],
+  projects: ["project", "projects", "personal projects", "key projects", "academic projects"],
+  interests: ["interest", "interests", "hobbies", "extra-curricular", "extracurricular"],
 };
 
-// Headers that mark content we deliberately ignore (so we stop grabbing lines once we hit them)
+// Headers that mark content we ignore (e.g. contact info / reference lists)
 const IGNORE_HEADERS = [
-  "skills",
   "contact",
-  "summary",
-  "objective",
   "references",
-  "languages",
-  "achievements",
-  "awards",
+  "declaration",
 ];
 
 function matchHeader(line: string): SectionKey | "ignore" | null {
   const clean = line
     .trim()
     .toLowerCase()
-    .replace(/[:\-–]+$/, "");
-  if (!clean || clean.length > 40) return null;
+    .replace(/[:\-–|]+$/, "");
+  if (!clean || clean.length > 50) return null;
 
   for (const [key, keywords] of Object.entries(SECTION_KEYWORDS)) {
-    if (keywords.some((kw) => clean === kw || clean.startsWith(kw))) {
+    if (keywords.some((kw) => clean === kw || clean.startsWith(kw) || clean.endsWith(kw))) {
       return key as SectionKey;
     }
   }
@@ -89,14 +88,16 @@ export function parseResumeSections(
       continue;
     }
 
-    if (current && line.length > 3 && line.length < 200) {
-      const cleaned = line.replace(/^[•▪◦\-*]\s*/, "").trim();
-      if (cleaned) result[current].push(cleaned);
+    if (current && line.length > 2 && line.length < 250) {
+      const cleaned = line.replace(/^[•▪◦\-*–\d+\.]\s*/, "").trim();
+      if (cleaned && !matchHeader(cleaned)) {
+        result[current].push(cleaned);
+      }
     }
   }
 
   (Object.keys(result) as SectionKey[]).forEach((k) => {
-    result[k] = Array.from(new Set(result[k])).slice(0, 8);
+    result[k] = Array.from(new Set(result[k])).slice(0, 10);
   });
 
   return result;

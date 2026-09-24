@@ -13,6 +13,8 @@ import {
 
 import api from "@/lib/api";
 import { getReadinessScore, getReadinessLabel } from "@/utils/readiness";
+import CareerDiscoveryChatbot from "@/components/CareerDiscoveryChatbot";
+import SalaryInsightsCard from "@/components/SalaryInsightsCard";
 
 interface Role {
   roleId: string;
@@ -178,6 +180,9 @@ export default function CareersPage() {
             </div>
           </div>
 
+          {/* AI Career Discovery Assistant */}
+          <CareerDiscoveryChatbot roles={roles} />
+
           {/* =================================================
               CAREER PATHS
           ================================================= */}
@@ -339,6 +344,9 @@ export default function CareersPage() {
                           </span>
                         )}
                       </div>
+
+                      {/* Salary Insights */}
+                      <SalaryInsightsCard roleName={role.name} />
 
                       {/* Action */}
                       <div className="mt-6">

@@ -493,10 +493,41 @@ export default function ProfilePage() {
     try {
       const text = await extractTextFromFile(file);
 
-      const matched = matchSkillsInText(text, allSkills).filter(
-        (id) => !profile.skills.includes(id),
-      );
-      setResumeSuggestions(matched);
+      let matched = matchSkillsInText(text, allSkills);
+
+      // Call AI endpoint to parse resume with Gemini
+      if (token) {
+        try {
+          const aiRes = await api.post(
+            "/ai/extract-resume-skills",
+            {
+              resumeText: text,
+              availableSkills: allSkills,
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+
+          if (aiRes.data && Array.isArray(aiRes.data.extractedSkills)) {
+            const aiSkills: string[] = aiRes.data.extractedSkills;
+            const mapped = aiSkills.map((name) => {
+              const found = allSkills.find(
+                (s) =>
+                  s.name.toLowerCase() === name.toLowerCase() ||
+                  s.skillId.toLowerCase() === name.toLowerCase(),
+              );
+              return found ? found.skillId : name;
+            });
+            matched = Array.from(new Set([...matched, ...mapped]));
+          }
+        } catch (aiErr) {
+          console.error("AI skill extraction fallback:", aiErr);
+        }
+      }
+
+      const filtered = matched.filter((id) => !profile.skills.includes(id));
+      setResumeSuggestions(filtered);
 
       const sections = parseResumeSections(text);
       // filter out anything already present in the profile
@@ -541,6 +572,14 @@ export default function ProfilePage() {
     addSkill(skillId);
 
     setResumeSuggestions((prev) => prev.filter((s) => s !== skillId));
+  };
+
+  const acceptAllSuggestions = () => {
+    setProfile((prev) => ({
+      ...prev,
+      skills: Array.from(new Set([...prev.skills, ...resumeSuggestions])),
+    }));
+    setResumeSuggestions([]);
   };
 
   /* =========================================================
@@ -1113,16 +1152,28 @@ export default function ProfilePage() {
         {resumeStatus === "done" && (
           <>
             <section className="bg-[#0B1120] border border-slate-800 rounded-xl px-6 py-5 mb-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <div>
-                  <h3 className="text-sm font-semibold text-white">
-                    Skills from your resume
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Tap to add to your profile
-                  </p>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">
+                      Skills from your resume
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tap to add to your profile
+                    </p>
+                  </div>
                 </div>
+
+                {resumeSuggestions.length > 0 && (
+                  <button
+                    onClick={acceptAllSuggestions}
+                    className="flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Add All Skills ({resumeSuggestions.length})
+                  </button>
+                )}
               </div>
 
               {resumeSuggestions.length === 0 ? (
