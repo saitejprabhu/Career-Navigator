@@ -3,28 +3,87 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
+  Building2,
   ChevronDown,
   LayoutDashboard,
   Map,
   BriefcaseBusiness,
   Network,
   User,
+  type LucideIcon,
 } from "lucide-react";
 
 import StreakWidget from "./StreakWidget";
 
+/* =========================================================
+   EXPLORE MENU ITEMS
+   Add a new page to the dropdown by adding one entry here.
+========================================================= */
+
+interface ExploreItem {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+const exploreItems: ExploreItem[] = [
+  {
+    href: "/careers",
+    label: "Careers",
+    description: "Explore career paths",
+    icon: BriefcaseBusiness,
+  },
+  {
+    href: "/career-map",
+    label: "Career Map",
+    description: "Visualize your journey",
+    icon: Network,
+  },
+  {
+    href: "/jobs",
+    label: "Jobs",
+    description: "Open roles right now",
+    icon: Building2,
+  },
+];
+
 export default function Navbar() {
   const pathname = usePathname();
   const [exploreOpen, setExploreOpen] = useState(false);
+  const exploreRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => {
     return pathname === path;
   };
 
-  const isExploreActive = pathname === "/careers" || pathname === "/career-map";
+  const isExploreActive = exploreItems.some((item) => isActive(item.href));
+
+  /* Close the dropdown on outside click or Escape */
+  useEffect(() => {
+    if (!exploreOpen) return;
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (!exploreRef.current?.contains(event.target as Node)) {
+        setExploreOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExploreOpen(false);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [exploreOpen]);
 
   return (
     <nav className="sticky top-0 z-50 h-[72px] border-b border-slate-800/80 bg-[#080D18]/95 shadow-[0_4px_25px_rgba(0,0,0,0.25)] backdrop-blur-xl">
@@ -116,9 +175,11 @@ export default function Navbar() {
               EXPLORE
           ================================================= */}
 
-          <div className="relative">
+          <div className="relative" ref={exploreRef}>
             <button
               type="button"
+              aria-haspopup="menu"
+              aria-expanded={exploreOpen}
               onClick={() => setExploreOpen((value) => !value)}
               className={`
                 group flex items-center gap-2 rounded-lg px-4 py-2.5
@@ -153,6 +214,7 @@ export default function Navbar() {
 
             {exploreOpen && (
               <div
+                role="menu"
                 className="
                   absolute left-1/2 top-[calc(100%+10px)]
                   w-60 -translate-x-1/2
@@ -163,123 +225,64 @@ export default function Navbar() {
                   shadow-2xl shadow-black/40
                 "
               >
-                {/* Careers */}
+                {exploreItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
 
-                <Link
-                  href="/careers"
-                  onClick={() => setExploreOpen(false)}
-                  className={`
-                    group flex items-center gap-3
-                    rounded-lg px-3 py-3
-                    transition-all
-                    ${
-                      isActive("/careers")
-                        ? "bg-blue-500/10"
-                        : "hover:bg-slate-800/60"
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      flex h-9 w-9 items-center justify-center
-                      rounded-lg border
-                      ${
-                        isActive("/careers")
-                          ? "border-blue-500/20 bg-blue-500/10"
-                          : "border-slate-800 bg-[#060B16]"
-                      }
-                    `}
-                  >
-                    <BriefcaseBusiness
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      role="menuitem"
+                      onClick={() => setExploreOpen(false)}
                       className={`
-                        h-4 w-4
-                        ${
-                          isActive("/careers")
-                            ? "text-blue-400"
-                            : "text-slate-500 group-hover:text-slate-300"
-                        }
-                      `}
-                    />
-                  </div>
-
-                  <div>
-                    <p
-                      className={`
-                        text-sm font-medium
-                        ${
-                          isActive("/careers")
-                            ? "text-blue-400"
-                            : "text-slate-200"
-                        }
+                        group flex items-center gap-3
+                        rounded-lg px-3 py-3
+                        transition-all
+                        ${index > 0 ? "mt-1" : ""}
+                        ${active ? "bg-blue-500/10" : "hover:bg-slate-800/60"}
                       `}
                     >
-                      Careers
-                    </p>
+                      <div
+                        className={`
+                          flex h-9 w-9 items-center justify-center
+                          rounded-lg border
+                          ${
+                            active
+                              ? "border-blue-500/20 bg-blue-500/10"
+                              : "border-slate-800 bg-[#060B16]"
+                          }
+                        `}
+                      >
+                        <Icon
+                          className={`
+                            h-4 w-4
+                            ${
+                              active
+                                ? "text-blue-400"
+                                : "text-slate-500 group-hover:text-slate-300"
+                            }
+                          `}
+                        />
+                      </div>
 
-                    <p className="mt-0.5 text-[11px] text-slate-600">
-                      Explore career paths
-                    </p>
-                  </div>
-                </Link>
+                      <div>
+                        <p
+                          className={`
+                            text-sm font-medium
+                            ${active ? "text-blue-400" : "text-slate-200"}
+                          `}
+                        >
+                          {item.label}
+                        </p>
 
-                {/* Career Map */}
-
-                <Link
-                  href="/career-map"
-                  onClick={() => setExploreOpen(false)}
-                  className={`
-                    group mt-1 flex items-center gap-3
-                    rounded-lg px-3 py-3
-                    transition-all
-                    ${
-                      isActive("/career-map")
-                        ? "bg-blue-500/10"
-                        : "hover:bg-slate-800/60"
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      flex h-9 w-9 items-center justify-center
-                      rounded-lg border
-                      ${
-                        isActive("/career-map")
-                          ? "border-blue-500/20 bg-blue-500/10"
-                          : "border-slate-800 bg-[#060B16]"
-                      }
-                    `}
-                  >
-                    <Network
-                      className={`
-                        h-4 w-4
-                        ${
-                          isActive("/career-map")
-                            ? "text-blue-400"
-                            : "text-slate-500 group-hover:text-slate-300"
-                        }
-                      `}
-                    />
-                  </div>
-
-                  <div>
-                    <p
-                      className={`
-                        text-sm font-medium
-                        ${
-                          isActive("/career-map")
-                            ? "text-blue-400"
-                            : "text-slate-200"
-                        }
-                      `}
-                    >
-                      Career Map
-                    </p>
-
-                    <p className="mt-0.5 text-[11px] text-slate-600">
-                      Visualize your journey
-                    </p>
-                  </div>
-                </Link>
+                        <p className="mt-0.5 text-[11px] text-slate-600">
+                          {item.description}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
