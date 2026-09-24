@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 import { ProgressModule } from './progress/progress.module';
 import { ProjectsModule } from './projects/projects.module';
 import { StreakModule } from './streak/streak.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { StreakModule } from './streak/streak.module';
     ProgressModule,
     ProjectsModule,
     StreakModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

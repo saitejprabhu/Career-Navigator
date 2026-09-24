@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { getSkillResource } from "@/data/skillResources";
 import { isSkillStale } from "@/utils/skillDecay";
+import { fetchTrendingArticles, DevToArticle } from "@/utils/devToArticles";
 
 import ReactFlow, {
   Background,
@@ -33,6 +34,7 @@ import {
   FileText,
   Lock,
   Map,
+  Newspaper,
   Play,
   Sparkles,
   Target,
@@ -307,6 +309,13 @@ function CareerMapContent() {
   const [reloadKey, setReloadKey] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Articles are stored together with the skill they were fetched for, so we
+  // can hide them when a different skill is selected without clearing state
+  // synchronously inside an effect.
+  const [trending, setTrending] = useState<{
+    skillId: string;
+    articles: DevToArticle[];
+  } | null>(null);
 
   /* =======================================================
      LOAD DATA
@@ -376,6 +385,33 @@ function CareerMapContent() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, reloadKey]);
+
+  /* =======================================================
+     TRENDING ARTICLES (Dev.to)
+     Fetched whenever a different skill is selected. setState is only
+     called from the promise callback (not synchronously in the effect
+     body), and results are matched to the selected skill when rendered.
+  ======================================================= */
+
+  const selectedSkillId = selectedSkill?.skillId ?? null;
+
+  useEffect(() => {
+    if (!selectedSkillId) return;
+
+    let cancelled = false;
+
+    fetchTrendingArticles(selectedSkillId)
+      .then((articles) => {
+        if (!cancelled) setTrending({ skillId: selectedSkillId, articles });
+      })
+      .catch((error) => {
+        console.error("Failed to load trending articles:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkillId]);
 
   /* =======================================================
      ACTIVE ROLE
@@ -476,6 +512,12 @@ function CareerMapContent() {
   const selectedSkillRelatedRoles = selectedSkill
     ? roles.filter((r) => r.requiredSkills.includes(selectedSkill.skillId))
     : [];
+
+  // Only show articles that belong to the currently selected skill.
+  const trendingArticles =
+    selectedSkillId && trending?.skillId === selectedSkillId
+      ? trending.articles
+      : [];
 
   /* =======================================================
      SKILL CLICK
@@ -1127,6 +1169,34 @@ function CareerMapContent() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Trending on Dev.to */}
+              {trendingArticles.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                    <Newspaper className="h-3.5 w-3.5 text-cyan-400" />
+                    Trending on Dev.to
+                  </h3>
+                  <div className="space-y-2">
+                    {trendingArticles.map((article) => (
+                      <a
+                        key={article.url}
+                        href={article.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-lg border border-slate-800 bg-[#0B1120] px-3 py-2.5 hover:border-cyan-500/40 transition"
+                      >
+                        <p className="text-xs text-slate-300 truncate">
+                          {article.title}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-0.5">
+                          {article.readable_publish_date}
+                        </p>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
 
