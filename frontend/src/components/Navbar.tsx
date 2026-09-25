@@ -13,15 +13,12 @@ import {
   BriefcaseBusiness,
   Network,
   User,
+  Menu,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
 import StreakWidget from "./StreakWidget";
-
-/* =========================================================
-   EXPLORE MENU ITEMS
-   Add a new page to the dropdown by adding one entry here.
-========================================================= */
 
 interface ExploreItem {
   href: string;
@@ -54,6 +51,7 @@ const exploreItems: ExploreItem[] = [
 export default function Navbar() {
   const pathname = usePathname();
   const [exploreOpen, setExploreOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const exploreRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => {
@@ -90,29 +88,22 @@ export default function Navbar() {
       {/* Subtle top glow */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
 
-      <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between px-6 lg:px-8">
-        {/* =================================================
-            LOGO
-        ================================================= */}
-
+      <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* LOGO */}
         <Link href="/" className="group flex shrink-0 items-center">
           <Image
             src="/images/logo3.png"
             alt="Career Navigator"
             width={210}
             height={85}
-            className="h-[75px] w-[210px] object-contain transition-transform duration-200 group-hover:scale-105"
+            className="h-[65px] sm:h-[75px] w-auto object-contain transition-transform duration-200 group-hover:scale-105"
             priority
           />
         </Link>
 
-        {/* =================================================
-            NAVIGATION
-        ================================================= */}
-
+        {/* DESKTOP NAVIGATION */}
         <div className="hidden md:flex items-center gap-1 rounded-xl border border-slate-800/70 bg-[#0B1120]/70 p-1">
           {/* Dashboard */}
-
           <Link
             href="/dashboard"
             className={`
@@ -142,7 +133,6 @@ export default function Navbar() {
           </Link>
 
           {/* Roadmaps */}
-
           <Link
             href="/roadmaps"
             className={`
@@ -171,10 +161,7 @@ export default function Navbar() {
             )}
           </Link>
 
-          {/* =================================================
-              EXPLORE
-          ================================================= */}
-
+          {/* EXPLORE */}
           <div className="relative" ref={exploreRef}>
             <button
               type="button"
@@ -211,7 +198,6 @@ export default function Navbar() {
             </button>
 
             {/* Dropdown */}
-
             {exploreOpen && (
               <div
                 role="menu"
@@ -288,23 +274,17 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* =================================================
-            RIGHT SIDE
-        ================================================= */}
-
+        {/* RIGHT SIDE */}
         <div className="flex items-center gap-3">
           {/* Streak */}
-
           <div className="hidden sm:block">
             <StreakWidget />
           </div>
 
           {/* Divider */}
-
           <div className="hidden sm:block h-7 w-px bg-slate-800" />
 
           {/* Profile */}
-
           <Link
             href="/profile"
             className={`
@@ -339,12 +319,93 @@ export default function Navbar() {
 
             <div className="hidden lg:block pr-2">
               <p className="text-xs font-medium text-slate-300">Profile</p>
-
               <p className="text-[10px] text-slate-600">View account</p>
             </div>
           </Link>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label="Toggle Navigation Menu"
+            className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-[#0B1120] text-slate-300 hover:text-white transition"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5 text-blue-400" />
+            ) : (
+              <Menu className="h-5 w-5 text-slate-300" />
+            )}
+          </button>
         </div>
       </div>
+
+      {/* MOBILE NAV DRAWER */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-slate-800/90 bg-[#080D18]/98 px-4 py-4 space-y-3 shadow-2xl backdrop-blur-2xl">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+            <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+              Navigation Menu
+            </span>
+            <div className="sm:hidden">
+              <StreakWidget />
+            </div>
+          </div>
+
+          <div className="grid gap-1">
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isActive("/dashboard")
+                  ? "bg-blue-500/10 text-blue-400"
+                  : "text-slate-300 hover:bg-slate-800/60"
+              }`}
+            >
+              <LayoutDashboard className="h-4 w-4 text-blue-400" />
+              Dashboard
+            </Link>
+
+            <Link
+              href="/roadmaps"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isActive("/roadmaps")
+                  ? "bg-blue-500/10 text-blue-400"
+                  : "text-slate-300 hover:bg-slate-800/60"
+              }`}
+            >
+              <Map className="h-4 w-4 text-blue-400" />
+              Roadmaps
+            </Link>
+
+            <div className="pt-2">
+              <p className="px-3 pb-1 text-[11px] text-slate-500 font-semibold uppercase">
+                Explore
+              </p>
+
+              {exploreItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      isActive(item.href)
+                        ? "bg-blue-500/10 text-blue-400"
+                        : "text-slate-300 hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 text-slate-400" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

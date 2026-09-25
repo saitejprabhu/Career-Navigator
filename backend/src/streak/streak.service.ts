@@ -10,6 +10,8 @@ const BADGE_RULES = [
   { days: 30, id: 'unstoppable', name: 'Unstoppable' },
 ];
 
+const MAX_FREEZES = 3;
+
 @Injectable()
 export class StreakService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
@@ -22,7 +24,6 @@ export class StreakService {
       user.badges = [];
     }
 
-    // Guard against corrupted/legacy values (e.g. strings, null, NaN)
     user.streak.count = Number(user.streak.count) || 0;
     user.streak.freezesAvailable = Number(user.streak.freezesAvailable) || 0;
 
@@ -44,24 +45,30 @@ export class StreakService {
       return { streak: user.streak, badges: user.badges };
     }
 
-    const daysDiff = last
-      ? Math.floor(
-          (new Date(today).getTime() - new Date(last).getTime()) / 86400000,
-        )
-      : 0;
-
     let { count, freezesAvailable } = user.streak;
 
-    if (daysDiff === 1) {
-      count += 1;
-    } else if (daysDiff === 2 && freezesAvailable > 0) {
-      count += 1;
-      freezesAvailable -= 1;
-    } else if (daysDiff > 1 || !last) {
+    if (!last) {
       count = 1;
+    } else {
+      const todayTime = new Date(today).getTime();
+      const lastTime = new Date(last).getTime();
+      const daysDiff = Math.round((todayTime - lastTime) / 86400000);
+
+      if (daysDiff === 1) {
+        count += 1;
+      } else if (daysDiff > 1) {
+        const missedDays = daysDiff - 1;
+        if (freezesAvailable >= missedDays) {
+          freezesAvailable -= missedDays;
+          count += 1;
+        } else {
+          freezesAvailable = 0;
+          count = 1;
+        }
+      }
     }
 
-    if (count % 3 === 0 && freezesAvailable < 2) {
+    if (count > 0 && count % 3 === 0 && freezesAvailable < MAX_FREEZES) {
       freezesAvailable += 1;
     }
 
@@ -88,6 +95,37 @@ export class StreakService {
 
     this.ensureValidStreakFields(user);
 
-    return { streak: user.streak, badges: user.badges };
+    const today = new Date().toDateString();
+    const last = user.streak.lastActiveDate;
+
+    if (!last || last === today) {
+      return { streak: user.streak, badges: user.badges };
+    }
+
+    const todayTime = new Date(today).getTime();
+    const lastTime = new Date(last).getTime();
+    const daysDiff = Math.round((todayTime - lastTime) / 86400000);
+
+    let effectiveCount = user.streak.count;
+    let effectiveFreezes = user.streak.freezesAvailable;
+
+    if (daysDiff > 1) {
+      const missedDays = daysDiff - 1;
+      if (effectiveFreezes >= missedDays) {
+        effectiveFreezes -= missedDays;
+      } else {
+        effectiveCount = 0;
+        effectiveFreezes = 0;
+      }
+    }
+
+    return {
+      streak: {
+        count: effectiveCount,
+        lastActiveDate: last,
+        freezesAvailable: effectiveFreezes,
+      },
+      badges: user.badges,
+    };
   }
 }

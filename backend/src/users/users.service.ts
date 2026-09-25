@@ -25,8 +25,20 @@ export class UsersService {
     return this.userModel.findById(id);
   }
 
-  async updateProfile(id: string, profile: any) {
-    return this.userModel.findByIdAndUpdate(id, { profile }, { new: true });
+  async updateProfile(id: string, data: any) {
+    const updateData: any = {};
+    if (data.name) {
+      updateData.name = data.name;
+    }
+    if (data.profile) {
+      updateData.profile = data.profile;
+      if (data.name) updateData.name = data.name;
+    } else {
+      const { name, ...profileFields } = data;
+      if (name) updateData.name = name;
+      updateData.profile = profileFields;
+    }
+    return this.userModel.findByIdAndUpdate(id, updateData, { new: true });
   }
 
   async setEnrolledRoles(userId: string, roleIds: string[]) {

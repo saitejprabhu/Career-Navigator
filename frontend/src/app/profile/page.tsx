@@ -363,13 +363,15 @@ export default function ProfilePage() {
 
     setNameSaving(true);
     try {
-      // Backend currently only persists the "profile" object via
-      // PUT /users/me/profile. We optimistically update locally so the
-      // UI reflects the change immediately; if a dedicated name-update
-      // endpoint exists on your backend, swap this call to use it so
-      // the new name survives a reload.
+      await api.put(
+        "/users/me/profile",
+        { name: trimmed, profile },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       setName(trimmed);
       setEditingName(false);
+    } catch (err) {
+      console.error("Failed to update name:", err);
     } finally {
       setNameSaving(false);
     }
@@ -591,11 +593,15 @@ export default function ProfilePage() {
     setSaveMsg("");
 
     try {
-      await api.put("/users/me/profile", profile, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      await api.put(
+        "/users/me/profile",
+        { name, profile },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       setSaveMsg("Profile saved successfully.");
     } catch {

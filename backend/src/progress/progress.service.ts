@@ -13,6 +13,25 @@ export class ProgressService {
 
     user.skillStatus[skillId] = { status: 'claimed', lastUpdated: new Date() };
     user.markModified('skillStatus'); // needed since skillStatus is a Mixed/Object type
+
+    if (!user.profile) {
+      user.profile = {
+        skills: [],
+        education: [],
+        certifications: [],
+        projects: [],
+        experience: [],
+        interests: [],
+      };
+    }
+    if (!user.profile.skills) {
+      user.profile.skills = [];
+    }
+    if (!user.profile.skills.includes(skillId)) {
+      user.profile.skills.push(skillId);
+      user.markModified('profile');
+    }
+
     await user.save();
 
     return user.skillStatus;
