@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Circle,
   Code2,
+  Search,
   Target,
   TrendingUp,
 } from "lucide-react";
@@ -37,6 +38,7 @@ export default function CareersPage() {
 
   const [enrolled, setEnrolled] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -188,7 +190,7 @@ export default function CareersPage() {
           ================================================= */}
 
           <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-white">
                   Career pathways
@@ -200,13 +202,67 @@ export default function CareersPage() {
               </div>
 
               <span className="text-xs text-slate-600">
-                {roles.length} paths available
+                {
+                  roles.filter((role) => {
+                    const q = searchQuery.toLowerCase().trim();
+                    if (!q) return true;
+                    return (
+                      role.name.toLowerCase().includes(q) ||
+                      role.roleId.toLowerCase().includes(q) ||
+                      role.requiredSkills.some((s) => s.toLowerCase().includes(q))
+                    );
+                  }).length
+                }{" "}
+                paths found
               </span>
             </div>
 
+            {/* Search Input */}
+            <div className="relative mb-6 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search career roles or skills (e.g. Frontend, Python, DevOps)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-800 bg-[#0B1120] pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+              />
+            </div>
+
             {/* Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {roles.map((role) => {
+            {roles.filter((role) => {
+              const q = searchQuery.toLowerCase().trim();
+              if (!q) return true;
+              return (
+                role.name.toLowerCase().includes(q) ||
+                role.roleId.toLowerCase().includes(q) ||
+                role.requiredSkills.some((s) => s.toLowerCase().includes(q))
+              );
+            }).length === 0 ? (
+              <div className="rounded-2xl border border-slate-800 bg-[#0B1120] p-8 text-center">
+                <p className="text-sm text-slate-400">
+                  No career pathways match &quot;{searchQuery}&quot;
+                </p>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-3 text-xs text-blue-400 hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {roles
+                  .filter((role) => {
+                    const q = searchQuery.toLowerCase().trim();
+                    if (!q) return true;
+                    return (
+                      role.name.toLowerCase().includes(q) ||
+                      role.roleId.toLowerCase().includes(q) ||
+                      role.requiredSkills.some((s) => s.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((role) => {
                 const gap = getSkillGap(role);
 
                 const readiness = getReadinessScore(
@@ -375,6 +431,7 @@ export default function CareersPage() {
                 );
               })}
             </div>
+          )}
           </div>
         </div>
       </div>

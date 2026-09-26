@@ -257,11 +257,16 @@ export default function DashboardPage() {
                   style={{ width: `${topRole.readiness}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between items-center text-xs text-gray-500">
                 <span>Career Match: {topRole.matchPercent}%</span>
-                <Link href="/careers" className="text-blue-400 hover:underline">
-                  View all matches →
-                </Link>
+                <div className="flex gap-3">
+                  <Link href={`/career-map?role=${topRole.role.roleId}`} className="text-blue-400 font-medium hover:underline">
+                    View roadmap →
+                  </Link>
+                  <Link href="/careers" className="text-slate-400 hover:text-white hover:underline">
+                    View all →
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -306,14 +311,17 @@ export default function DashboardPage() {
               {rankedRoles
                 .slice(0, 3)
                 .map(({ role, matchPercent, readiness }) => (
-                  <div
+                  <Link
                     key={role.roleId}
-                    className="bg-[#060B16] border border-slate-800 rounded-xl p-5 flex flex-col hover:border-blue-500/40 hover:bg-[#08101f] transition-all duration-200"
+                    href={`/career-map?role=${role.roleId}`}
+                    className="bg-[#060B16] border border-slate-800 rounded-xl p-5 flex flex-col hover:border-blue-500/60 hover:bg-[#08101f] transition-all duration-200 group cursor-pointer"
                   >
-                    <div className="h-11 w-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-semibold mb-4">
+                    <div className="h-11 w-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-semibold mb-4 group-hover:scale-105 transition-transform">
                       {role.name[0]}
                     </div>
-                    <p className="font-semibold mb-1">{role.name}</p>
+                    <p className="font-semibold mb-1 group-hover:text-blue-400 transition-colors">
+                      {role.name}
+                    </p>
                     <p className="text-xs text-slate-500 mb-4">
                       {getReadinessLabel(readiness)}
                     </p>
@@ -322,13 +330,11 @@ export default function DashboardPage() {
                         {matchPercent}% match
                       </span>
                     </div>
-                    <Link
-                      href="/careers"
-                      className="mt-auto flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
-                    >
-                      View more <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
+                    <div className="mt-auto flex items-center gap-1 text-sm text-blue-400 group-hover:text-blue-300 font-medium">
+                      View Roadmap{" "}
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </Link>
                 ))}
             </div>
           )}
