@@ -14,12 +14,51 @@ export interface SalaryResponse {
   message?: string;
 }
 
-const COUNTRY_CONFIG: Record<string, { code: string; name: string; currency: string; symbol: string; baseMultiplier: number }> = {
-  in: { code: 'in', name: 'India', currency: 'INR', symbol: '₹', baseMultiplier: 0.10 }, // Regional purchasing power adjustment for India
-  us: { code: 'us', name: 'United States', currency: 'USD', symbol: '$', baseMultiplier: 1.0 },
-  gb: { code: 'gb', name: 'United Kingdom', currency: 'GBP', symbol: '£', baseMultiplier: 0.8 },
-  ca: { code: 'ca', name: 'Canada', currency: 'CAD', symbol: 'CA$', baseMultiplier: 1.25 },
-  au: { code: 'au', name: 'Australia', currency: 'AUD', symbol: 'A$', baseMultiplier: 1.35 },
+const COUNTRY_CONFIG: Record<
+  string,
+  {
+    code: string;
+    name: string;
+    currency: string;
+    symbol: string;
+    baseMultiplier: number;
+  }
+> = {
+  in: {
+    code: 'in',
+    name: 'India',
+    currency: 'INR',
+    symbol: '₹',
+    baseMultiplier: 0.1,
+  }, // Regional purchasing power adjustment for India
+  us: {
+    code: 'us',
+    name: 'United States',
+    currency: 'USD',
+    symbol: '$',
+    baseMultiplier: 1.0,
+  },
+  gb: {
+    code: 'gb',
+    name: 'United Kingdom',
+    currency: 'GBP',
+    symbol: '£',
+    baseMultiplier: 0.8,
+  },
+  ca: {
+    code: 'ca',
+    name: 'Canada',
+    currency: 'CAD',
+    symbol: 'CA$',
+    baseMultiplier: 1.25,
+  },
+  au: {
+    code: 'au',
+    name: 'Australia',
+    currency: 'AUD',
+    symbol: 'A$',
+    baseMultiplier: 1.35,
+  },
 };
 
 // Base market compensation standards in USD
@@ -40,8 +79,12 @@ const ROLE_BASE_SALARIES: Record<string, { min: number; max: number }> = {
 export class SalaryService {
   private readonly logger = new Logger(SalaryService.name);
 
-  async getSalaryInsights(roleName: string, countryCode = 'in'): Promise<SalaryResponse> {
-    const regionInfo = COUNTRY_CONFIG[countryCode.toLowerCase()] || COUNTRY_CONFIG['in'];
+  async getSalaryInsights(
+    roleName: string,
+    countryCode = 'in',
+  ): Promise<SalaryResponse> {
+    const regionInfo =
+      COUNTRY_CONFIG[countryCode.toLowerCase()] || COUNTRY_CONFIG['in'];
     const appId = process.env.ADZUNA_APP_ID;
     const appKey = process.env.ADZUNA_APP_KEY;
 
@@ -66,7 +109,9 @@ export class SalaryService {
           const data = await res.json();
           const histogram = data?.histogram;
           if (histogram && Object.keys(histogram).length > 0) {
-            const keys = Object.keys(histogram).map(Number).sort((a, b) => a - b);
+            const keys = Object.keys(histogram)
+              .map(Number)
+              .sort((a, b) => a - b);
             const minSal = keys[0];
             const maxSal = keys[keys.length - 1];
             const avgSal = Math.round((minSal + maxSal) / 2);
@@ -77,7 +122,12 @@ export class SalaryService {
               minSalary: minSal,
               maxSalary: maxSal,
               avgSalary: avgSal,
-              formattedRange: this.formatSalaryDisplay(minSal, maxSal, regionInfo.currency, regionInfo.symbol),
+              formattedRange: this.formatSalaryDisplay(
+                minSal,
+                maxSal,
+                regionInfo.currency,
+                regionInfo.symbol,
+              ),
               currency: regionInfo.currency,
               currencySymbol: regionInfo.symbol,
               region: regionInfo.name,
@@ -103,7 +153,9 @@ export class SalaryService {
           }
         }
       } catch (e) {
-        this.logger.warn('Failed to fetch live exchange rates, using current market rate defaults');
+        this.logger.warn(
+          'Failed to fetch live exchange rates, using current market rate defaults',
+        );
       }
 
       // Determine role base compensation range
@@ -121,12 +173,20 @@ export class SalaryService {
 
       if (regionInfo.currency === 'INR') {
         // India compensation in INR (lakhs per annum)
-        minSal = Math.round((matchedBase.min * 0.09 * usdToTargetRate) / 10000) * 10000; // e.g. ~₹6,00,000
-        maxSal = Math.round((matchedBase.max * 0.09 * usdToTargetRate) / 10000) * 10000; // e.g. ~₹12,50,000
+        minSal =
+          Math.round((matchedBase.min * 0.09 * usdToTargetRate) / 10000) *
+          10000; // e.g. ~₹6,00,000
+        maxSal =
+          Math.round((matchedBase.max * 0.09 * usdToTargetRate) / 10000) *
+          10000; // e.g. ~₹12,50,000
       } else {
         const rateToUse = usdToTargetRate * regionInfo.baseMultiplier;
-        minSal = Math.round((matchedBase.min * (rateToUse / usdToTargetRate)) / 1000) * 1000;
-        maxSal = Math.round((matchedBase.max * (rateToUse / usdToTargetRate)) / 1000) * 1000;
+        minSal =
+          Math.round((matchedBase.min * (rateToUse / usdToTargetRate)) / 1000) *
+          1000;
+        maxSal =
+          Math.round((matchedBase.max * (rateToUse / usdToTargetRate)) / 1000) *
+          1000;
       }
 
       return {
@@ -135,11 +195,19 @@ export class SalaryService {
         minSalary: minSal,
         maxSalary: maxSal,
         avgSalary: Math.round((minSal + maxSal) / 2),
-        formattedRange: this.formatSalaryDisplay(minSal, maxSal, regionInfo.currency, regionInfo.symbol),
+        formattedRange: this.formatSalaryDisplay(
+          minSal,
+          maxSal,
+          regionInfo.currency,
+          regionInfo.symbol,
+        ),
         currency: regionInfo.currency,
         currencySymbol: regionInfo.symbol,
         region: regionInfo.name,
-        dataSource: appId && appKey ? 'Adzuna Jobs API' : 'Live Currency & Salary Insights API',
+        dataSource:
+          appId && appKey
+            ? 'Adzuna Jobs API'
+            : 'Live Currency & Salary Insights API',
       };
     } catch (err) {
       this.logger.error('Error generating salary insights', err);
@@ -156,7 +224,12 @@ export class SalaryService {
     };
   }
 
-  private formatSalaryDisplay(min: number, max: number, currency: string, symbol: string): string {
+  private formatSalaryDisplay(
+    min: number,
+    max: number,
+    currency: string,
+    symbol: string,
+  ): string {
     if (currency === 'INR') {
       const minLakhs = (min / 100000).toFixed(1).replace(/\.0$/, '');
       const maxLakhs = (max / 100000).toFixed(1).replace(/\.0$/, '');

@@ -7,7 +7,9 @@ import { ExtractSkillsDto } from './dto/extract-skills.dto';
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  async generateSkillGapSummary(dto: SkillGapSummaryDto): Promise<{ summary: string; source: string }> {
+  async generateSkillGapSummary(
+    dto: SkillGapSummaryDto,
+  ): Promise<{ summary: string; source: string }> {
     const targetRole = dto?.targetRole || 'Target Career Path';
     const currentSkills = dto?.currentSkills || [];
     const missingSkills = dto?.missingSkills || [];
@@ -42,22 +44,28 @@ Instructions:
     // 1. Try OpenAI if API key present
     if (openAiKey) {
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`,
+        const response = await fetch(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${openAiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are an AI career navigation assistant.',
+                },
+                { role: 'user', content: promptText },
+              ],
+              max_tokens: 250,
+              temperature: 0.7,
+            }),
           },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: 'You are an AI career navigation assistant.' },
-              { role: 'user', content: promptText },
-            ],
-            max_tokens: 250,
-            temperature: 0.7,
-          }),
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -90,7 +98,8 @@ Instructions:
 
         if (response.ok) {
           const data = await response.json();
-          const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          const summary =
+            data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
           if (summary) {
             return { summary, source: 'Gemini LLM' };
           }
@@ -104,8 +113,14 @@ Instructions:
     }
 
     // 3. Smart Fallback Summary if API key is unconfigured or failed
-    const currentList = currentSkills.length > 0 ? currentSkills.slice(0, 3).join(', ') : 'foundational concepts';
-    const missingList = missingSkills.length > 0 ? missingSkills.slice(0, 3).join(' and ') : 'advanced practices';
+    const currentList =
+      currentSkills.length > 0
+        ? currentSkills.slice(0, 3).join(', ')
+        : 'foundational concepts';
+    const missingList =
+      missingSkills.length > 0
+        ? missingSkills.slice(0, 3).join(' and ')
+        : 'advanced practices';
 
     let fallbackSummary = `You have built a solid start in ${targetRole} with skills in ${currentList}. To advance towards your goal, your next key priorities should focus on mastering ${missingList}.`;
 
@@ -119,7 +134,9 @@ Instructions:
     };
   }
 
-  async generateCareerDiscoveryResponse(dto: CareerDiscoveryDto): Promise<{ response: string; source: string }> {
+  async generateCareerDiscoveryResponse(
+    dto: CareerDiscoveryDto,
+  ): Promise<{ response: string; source: string }> {
     const query = dto?.query?.trim() || 'What career paths suit my profile?';
     const userProfile = dto?.userProfile || {};
     const availableRoles = dto?.availableRoles || [];
@@ -128,7 +145,12 @@ Instructions:
     const geminiKey = process.env.GEMINI_API_KEY;
 
     const rolesContext = availableRoles?.length
-      ? availableRoles.map((r: any) => `- ${r.name || r.roleId} (Required skills: ${r.requiredSkills?.join(', ') || 'N/A'})`).join('\n')
+      ? availableRoles
+          .map(
+            (r: any) =>
+              `- ${r.name || r.roleId} (Required skills: ${r.requiredSkills?.join(', ') || 'N/A'})`,
+          )
+          .join('\n')
       : 'No available roles provided.';
 
     const profileContext = userProfile
@@ -161,22 +183,28 @@ Instructions:
 
     if (openAiKey) {
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`,
+        const response = await fetch(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${openAiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a helpful AI Career Discovery Assistant.',
+                },
+                { role: 'user', content: promptText },
+              ],
+              max_tokens: 400,
+              temperature: 0.7,
+            }),
           },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: 'You are a helpful AI Career Discovery Assistant.' },
-              { role: 'user', content: promptText },
-            ],
-            max_tokens: 400,
-            temperature: 0.7,
-          }),
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -205,7 +233,8 @@ Instructions:
 
         if (response.ok) {
           const data = await response.json();
-          const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          const answer =
+            data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
           if (answer) {
             return { response: answer, source: 'Gemini LLM' };
           }
@@ -218,32 +247,88 @@ Instructions:
     // Advanced Smart AI Conversational Engine
     const qLower = query.toLowerCase();
     const userSkills: string[] = userProfile?.skills || [];
-    const skillsStr = userSkills.length > 0 ? userSkills.slice(0, 5).join(', ') : 'your core technical concepts';
+    const skillsStr =
+      userSkills.length > 0
+        ? userSkills.slice(0, 5).join(', ')
+        : 'your core technical concepts';
     const userName = userProfile?.name || 'Learner';
 
     let fallbackAnswer = '';
 
-    if (qLower.includes('too much coding') || qLower.includes('don\'t want') || qLower.includes('less coding') || qLower.includes('no coding')) {
+    if (
+      qLower.includes('too much coding') ||
+      qLower.includes("don't want") ||
+      qLower.includes('less coding') ||
+      qLower.includes('no coding')
+    ) {
       fallbackAnswer = `Hello ${userName}! If you prefer tech roles with less intensive daily coding, excellent career pathways to consider include **DevOps / Cloud Engineer**, **Data Analyst**, or **Technical Product Manager**.\n\nThese roles focus on system architecture, data visualization, and infrastructure management rather than writing complex software algorithms all day. Check out the **DevOps / Cloud Engineer** or **Data Analyst** roles on our platform to get started!`;
-    } else if (qLower.includes('frontend') || qLower.includes('react') || qLower.includes('ui') || qLower.includes('css') || qLower.includes('html') || qLower.includes('web development')) {
+    } else if (
+      qLower.includes('frontend') ||
+      qLower.includes('react') ||
+      qLower.includes('ui') ||
+      qLower.includes('css') ||
+      qLower.includes('html') ||
+      qLower.includes('web development')
+    ) {
       fallbackAnswer = `Frontend development is focused on building intuitive, responsive user interfaces. To become a strong Frontend Developer, focus on mastering **HTML**, **CSS**, **JavaScript**, **React**, and **Next.js**.\n\nSince you already have skills in ${skillsStr}, practicing component architecture, state management (Zustand/Redux), and responsive design will prepare you for production roles!`;
-    } else if (qLower.includes('backend') || qLower.includes('node') || qLower.includes('api') || qLower.includes('database') || qLower.includes('mongo') || qLower.includes('nest') || qLower.includes('sql')) {
+    } else if (
+      qLower.includes('backend') ||
+      qLower.includes('node') ||
+      qLower.includes('api') ||
+      qLower.includes('database') ||
+      qLower.includes('mongo') ||
+      qLower.includes('nest') ||
+      qLower.includes('sql')
+    ) {
       fallbackAnswer = `Backend engineering focuses on building scalable server APIs, authentication, and database architectures. Recommended skills include **Node.js**, **NestJS/Express**, **TypeScript**, **MongoDB**, and **PostgreSQL**.\n\nTo stand out, build RESTful APIs with full authentication, data validation, and database relations, then verify your backend skills using our stage-gated project submissions!`;
-    } else if (qLower.includes('fullstack') || qLower.includes('full stack') || qLower.includes('full-stack')) {
+    } else if (
+      qLower.includes('fullstack') ||
+      qLower.includes('full stack') ||
+      qLower.includes('full-stack')
+    ) {
       fallbackAnswer = `A Fullstack Developer connects interactive UI frontends with robust backend server APIs and databases.\n\nOn Career Navigator, we recommend starting with modern web stacks like **React/Next.js** for frontend, **Node.js/NestJS** for backend APIs, and **MongoDB/PostgreSQL** for database persistence. Complete both Frontend and Backend roadmaps to earn fullstack readiness!`;
-    } else if (qLower.includes('ai') || qLower.includes('machine learning') || qLower.includes('ml') || qLower.includes('python') || qLower.includes('data science')) {
+    } else if (
+      qLower.includes('ai') ||
+      qLower.includes('machine learning') ||
+      qLower.includes('ml') ||
+      qLower.includes('python') ||
+      qLower.includes('data science')
+    ) {
       fallbackAnswer = `AI & Machine Learning Engineering involves building predictive models, data processing pipelines, and integrating LLMs into modern software.\n\nKey skills to master include **Python**, **Data Analysis**, **TensorFlow/PyTorch**, and API integration. Explore our AI-focused pathway to see required competencies and project tasks!`;
-    } else if (qLower.includes('cloud') || qLower.includes('devops') || qLower.includes('aws') || qLower.includes('docker') || qLower.includes('kubernetes')) {
+    } else if (
+      qLower.includes('cloud') ||
+      qLower.includes('devops') ||
+      qLower.includes('aws') ||
+      qLower.includes('docker') ||
+      qLower.includes('kubernetes')
+    ) {
       fallbackAnswer = `DevOps & Cloud Infrastructure is essential for deploying, monitoring, and scaling applications in production.\n\nCore technologies include **Docker**, **Kubernetes**, **CI/CD Pipelines**, **Linux administration**, and **AWS/GCP**. Enrolling in our Cloud & DevOps pathway will guide you step-by-step through environment configuration!`;
-    } else if (qLower.includes('salary') || qLower.includes('pay') || qLower.includes('package') || qLower.includes('compensation') || qLower.includes('earning') || qLower.includes('income')) {
+    } else if (
+      qLower.includes('salary') ||
+      qLower.includes('pay') ||
+      qLower.includes('package') ||
+      qLower.includes('compensation') ||
+      qLower.includes('earning') ||
+      qLower.includes('income')
+    ) {
       fallbackAnswer = `Salary packages vary based on region, experience, and verified skill set! For instance, Software Engineers and Cloud Architects command high compensation in tech markets globally.\n\nYou can use our interactive **Salary Insights** card directly on each career card on the Careers page to check real-time estimated ranges by country (India, US, UK, Canada, Australia)!`;
-    } else if (qLower.includes('best') || qLower.includes('match') || qLower.includes('suit') || qLower.includes('fit') || qLower.includes('which career') || qLower.includes('which role') || qLower.includes('recommend')) {
+    } else if (
+      qLower.includes('best') ||
+      qLower.includes('match') ||
+      qLower.includes('suit') ||
+      qLower.includes('fit') ||
+      qLower.includes('which career') ||
+      qLower.includes('which role') ||
+      qLower.includes('recommend')
+    ) {
       if (availableRoles.length > 0) {
         let bestRole = availableRoles[0];
         let maxMatch = -1;
         availableRoles.forEach((role: any) => {
           const req: string[] = role.requiredSkills || [];
-          const matchCount = req.filter((s: string) => userSkills.includes(s)).length;
+          const matchCount = req.filter((s: string) =>
+            userSkills.includes(s),
+          ).length;
           const pct = req.length > 0 ? matchCount / req.length : 0;
           if (pct > maxMatch) {
             maxMatch = pct;
@@ -255,13 +340,32 @@ Instructions:
       } else {
         fallbackAnswer = `Based on your profile skills in ${skillsStr}, roles in modern Web Development, Backend Engineering, or Cloud Infrastructure match your foundation well! Check out our active career paths on the Careers page.`;
       }
-    } else if (qLower.includes('roadmap') || qLower.includes('path') || qLower.includes('where to start') || qLower.includes('order') || qLower.includes('how to learn')) {
+    } else if (
+      qLower.includes('roadmap') ||
+      qLower.includes('path') ||
+      qLower.includes('where to start') ||
+      qLower.includes('order') ||
+      qLower.includes('how to learn')
+    ) {
       fallbackAnswer = `To follow an effective learning path on Career Navigator:\n\n1. **Enroll in a Pathway:** Pick a role on the Careers page.\n2. **Follow the Career Map:** Open your interactive visual roadmap where prerequisites are mapped in logical order.\n3. **Build & Verify:** For each skill, complete practical projects, submit your GitHub link, and pass the verification quiz to move your status from claimed → practiced → mastered!`;
-    } else if (qLower.includes('project') || qLower.includes('portfolio') || qLower.includes('github')) {
+    } else if (
+      qLower.includes('project') ||
+      qLower.includes('portfolio') ||
+      qLower.includes('github')
+    ) {
       fallbackAnswer = `Projects prove what you can build beyond theoretical knowledge! On Career Navigator, each skill features stage-gated projects.\n\nWhen you submit your GitHub repository URL on the skill page (\`/skill/[skillId]\`) and pass the verification assessment, your skill status is officially upgraded on your career map and readiness score!`;
-    } else if (qLower.includes('resume') || qLower.includes('upload') || qLower.includes('cv')) {
+    } else if (
+      qLower.includes('resume') ||
+      qLower.includes('upload') ||
+      qLower.includes('cv')
+    ) {
       fallbackAnswer = `You can upload your PDF or DOCX resume directly on your **Profile page**! Our AI parser extracts your technical skills, education, and experience, mapping them into your profile tags automatically.`;
-    } else if (qLower.includes('why') && (qLower.includes('skill') || qLower.includes('required') || qLower.includes('need'))) {
+    } else if (
+      qLower.includes('why') &&
+      (qLower.includes('skill') ||
+        qLower.includes('required') ||
+        qLower.includes('need'))
+    ) {
       fallbackAnswer = `Skills are required to ensure you can build production-ready applications independently. For instance, foundational programming languages structure logic, frameworks simplify complex UI/server patterns, and databases handle data persistence safely.`;
     } else {
       fallbackAnswer = `Great question! As a learner with skills in **${skillsStr}**, navigating your career path involves selecting a target role and systematically building verified competencies.\n\nFeel free to ask me about specific tech roles (Frontend, Backend, DevOps, AI, Data), salary insights, project verification, or which career path best matches your goals!`;
@@ -273,7 +377,9 @@ Instructions:
     };
   }
 
-  async extractSkillsFromResumeText(dto: ExtractSkillsDto): Promise<{ extractedSkills: string[]; source: string }> {
+  async extractSkillsFromResumeText(
+    dto: ExtractSkillsDto,
+  ): Promise<{ extractedSkills: string[]; source: string }> {
     const resumeText = dto?.resumeText?.trim() || '';
     const availableSkills = dto?.availableSkills || [];
 
@@ -317,12 +423,19 @@ Instructions:
 
         if (response.ok) {
           const data = await response.json();
-          let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          let rawText =
+            data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
           if (rawText) {
-            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            rawText = rawText
+              .replace(/```json/g, '')
+              .replace(/```/g, '')
+              .trim();
             const parsed = JSON.parse(rawText);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              return { extractedSkills: parsed, source: 'Gemini AI Resume Extractor' };
+              return {
+                extractedSkills: parsed,
+                source: 'Gemini AI Resume Extractor',
+              };
             }
           }
         }
@@ -334,28 +447,37 @@ Instructions:
     // 2. Try OpenAI API
     if (openAiKey) {
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`,
+        const response = await fetch(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${openAiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: promptText }],
+              max_tokens: 300,
+              temperature: 0.2,
+            }),
           },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: promptText }],
-            max_tokens: 300,
-            temperature: 0.2,
-          }),
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
           let rawText = data?.choices?.[0]?.message?.content?.trim();
           if (rawText) {
-            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            rawText = rawText
+              .replace(/```json/g, '')
+              .replace(/```/g, '')
+              .trim();
             const parsed = JSON.parse(rawText);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              return { extractedSkills: parsed, source: 'OpenAI AI Resume Extractor' };
+              return {
+                extractedSkills: parsed,
+                source: 'OpenAI AI Resume Extractor',
+              };
             }
           }
         }
@@ -367,23 +489,59 @@ Instructions:
     // 3. Fallback Smart Keyword Extraction
     const lowerText = resumeText.toLowerCase();
     const defaultSkillCatalog = [
-      'HTML', 'CSS', 'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js',
-      'Express', 'Python', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Go', 'Rust',
-      'MongoDB', 'PostgreSQL', 'MySQL', 'SQLite', 'Redis', 'GraphQL', 'REST API',
-      'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP', 'Git', 'GitHub', 'CI/CD',
-      'Tailwind', 'Bootstrap', 'Redux', 'Zustand', 'Jest', 'Cypress'
+      'HTML',
+      'CSS',
+      'JavaScript',
+      'TypeScript',
+      'React',
+      'Next.js',
+      'Node.js',
+      'Express',
+      'Python',
+      'Java',
+      'C++',
+      'C#',
+      'PHP',
+      'Ruby',
+      'Go',
+      'Rust',
+      'MongoDB',
+      'PostgreSQL',
+      'MySQL',
+      'SQLite',
+      'Redis',
+      'GraphQL',
+      'REST API',
+      'Docker',
+      'Kubernetes',
+      'AWS',
+      'Azure',
+      'GCP',
+      'Git',
+      'GitHub',
+      'CI/CD',
+      'Tailwind',
+      'Bootstrap',
+      'Redux',
+      'Zustand',
+      'Jest',
+      'Cypress',
     ];
 
     const extracted: string[] = [];
     for (const skill of defaultSkillCatalog) {
       const sLower = skill.toLowerCase();
-      if (lowerText.includes(sLower) || lowerText.includes(sLower.replace('.', ''))) {
+      if (
+        lowerText.includes(sLower) ||
+        lowerText.includes(sLower.replace('.', ''))
+      ) {
         extracted.push(skill);
       }
     }
 
     return {
-      extractedSkills: extracted.length > 0 ? extracted : ['JavaScript', 'HTML', 'React'],
+      extractedSkills:
+        extracted.length > 0 ? extracted : ['JavaScript', 'HTML', 'React'],
       source: 'Career Navigator Smart Resume Parser (Fallback)',
     };
   }
