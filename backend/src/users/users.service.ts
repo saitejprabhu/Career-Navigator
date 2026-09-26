@@ -26,19 +26,21 @@ export class UsersService {
   }
 
   async updateProfile(id: string, data: any) {
-    const updateData: any = {};
+    const user = await this.userModel.findById(id);
+    if (!user) return null;
+
     if (data.name) {
-      updateData.name = data.name;
+      user.name = data.name;
     }
-    if (data.profile) {
-      updateData.profile = data.profile;
-      if (data.name) updateData.name = data.name;
-    } else {
-      const { name, ...profileFields } = data;
-      if (name) updateData.name = name;
-      updateData.profile = profileFields;
-    }
-    return this.userModel.findByIdAndUpdate(id, updateData, { new: true });
+
+    const newProfile = data.profile !== undefined ? data.profile : data;
+    user.profile = {
+      ...(user.profile || {}),
+      ...newProfile,
+    };
+    user.markModified('profile');
+
+    return user.save();
   }
 
   async setEnrolledRoles(userId: string, roleIds: string[]) {

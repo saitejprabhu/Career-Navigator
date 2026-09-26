@@ -592,13 +592,16 @@ export default function ProfilePage() {
     setSaving(true);
     setSaveMsg("");
 
+    const activeToken =
+      typeof window !== "undefined" ? localStorage.getItem("token") : token;
+
     try {
       await api.put(
         "/users/me/profile",
         { name, profile },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${activeToken}`,
           },
         },
       );
