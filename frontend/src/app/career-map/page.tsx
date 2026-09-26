@@ -355,11 +355,14 @@ function CareerMapContent() {
         // learner's first enrolled role if none was requested, or if the
         // requested role isn't actually one they're enrolled in.
         const requestedRole = searchParams.get("role");
+        const roleExists = roleData.some((r) => r.roleId === requestedRole);
 
-        if (requestedRole && enrolled.includes(requestedRole)) {
+        if (requestedRole && roleExists) {
           setActiveRoleId(requestedRole);
         } else if (enrolled.length > 0) {
           setActiveRoleId(enrolled[0]);
+        } else if (roleData.length > 0) {
+          setActiveRoleId(roleData[0].roleId);
         }
       })
       .catch((error) => {
